@@ -1,0 +1,94 @@
+/* General Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Body Styling */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #969295;
+    color: #3a283b;
+    line-height: 1.6;
+    padding: 20px;
+}
+
+/* Container */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    text-align: center;
+}
+
+/* Title */
+h1 {
+    color: #dfe9f4;
+    margin-bottom: 30px;
+    font-size: 36px;
+}
+
+/* Grid Layout */
+.subject-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    justify-content: center;
+    align-items: stretch;
+}
+
+/* Subject Cards */
+.subject-card {
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    transition: transform 0.3s, box-shadow 0.3s;
+    text-align: center;
+}
+
+.subject-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Subject Name Link */
+.subject-card h3 a {
+    font-size: 22px;
+    color: #4a90e2;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.subject-card h3 a:hover {
+    color: #1d72b8;
+}
+
+/* Staff Name */
+.subject-card p {
+    font-size: 16px;
+    color: #666;
+}
+
+/* No Records Found */
+.no-records {
+    font-size: 18px;
+    color: #888;
+    margin-top: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 28px;
+    }
+
+    .subject-card h3 a {
+        font-size: 20px;
+    }
+
+    .subject-card p {
+        font-size: 14px;
+    }
+}

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View History</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='modern_global.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='modern.css') }}">
+</head>
+<body>
+
+    <h2>History Records</h2>
+
+    <div class="history-container" id="historyContainer">
+        {% for history in histories %}
+        <div class="history-card" id="history-{{ history.id }}">
+            <h3>History Entry</h3>
+            
+            <div class="field">
+                <label>History Num:</label>
+                <input type="text" value="{{ history.id }}" readonly>
+            </div>
+            <div class="field">
+                <label>Topic:</label>
+                <input type="text" value="{{ history.topic }}" readonly>
+            </div>
+
+            <div class="field">
+                <label>Subject:</label>
+                <input type="text" value="{{ history.subname }}" readonly>
+            </div>
+
+            <div class="field">
+                <label>Posting Name:</label>
+                <input type="text" value="{{ history.postingname }}" readonly>
+            </div>
+
+            <div class="field">
+                <label>Patient Name:</label>
+                <input type="text" value="{{ history.patientname }}" readonly>
+            </div>
+
+            <div class="field">
+                <label>Disease:</label>
+                <textarea readonly>{{ history.disease }}</textarea>
+            </div>
+
+            <div class="field">
+                <label>Remarks:</label>
+                <textarea readonly>{{ history.remarks }}</textarea>
+            </div>
+
+            <div class="field">
+                <label>Duration:</label>
+                <input type="text" value="{{ history.duration }}" readonly>
+            </div>
+
+            <div class="field">
+                <label>Reminder Date:</label>
+                <input type="date" value="{{ history.remainder }}" readonly>
+            </div>
+            <form action="{{ url_for('del_history', id=history.id) }}" method="POST">
+            <button class="delete-button" onclick="deleteHistory('{{ history.id }}')">Delete</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+
+    <button class="back-button" onclick="window.history.back()">Go Back</button>
+
+    <script>
+        function deleteHistory(historyId) {
+            if (!confirm("Are you sure you want to delete this entry?")) {
+                return; // Stop deletion if the user cancels
+            }
+        
+            const historyCard = document.getElementById('history-' + historyId);
+            if (historyCard) {
+                historyCard.style.opacity = '0';
+                historyCard.style.transform = 'scale(0.9)';
+                setTimeout(() => {
+                    historyCard.remove();
+                    deleteFromDatabase(historyId); // Call backend API to delete entry
+                }, 300);
+            }
+        }
+        
+        function deleteFromDatabase(historyId) {
+            fetch(`/delete_history/${historyId}`, {
+                method: 'DELETE',
+            })
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch(error => console.error('Error:', error));
+        }
+        
+    </script>
+
+</body>
+</html>

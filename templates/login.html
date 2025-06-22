@@ -1,0 +1,25 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='modern_global.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='modern.css') }}">
+
+<!-- From Uiverse.io by Yaya12085 --> 
+<div class="form-container">
+	<p class="title">Login</p>
+
+	<!-- ✅ Correct Form with Proper Action & Method -->
+	<form class="form" action="/" method="POST">
+		<div class="input-group">
+			<label for="email">Email</label>
+			<input type="text" name="email" id="email" placeholder="" required>
+		</div>
+		<div class="input-group">
+			<label for="password">Password</label>
+			<input type="password" name="password" id="password" placeholder="" required>
+			<div class="forgot">
+				<a rel="noopener noreferrer" href="#">Forgot Password ?</a>
+			</div>
+		</div>
+
+		<!-- ✅ Submit Button (Inside Correct Form) -->
+		<button type="submit" class="sign">Sign in</button>
+	</form>
+</div>

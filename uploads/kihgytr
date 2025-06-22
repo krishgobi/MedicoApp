@@ -1,0 +1,38 @@
+import numpy as np
+
+class LinearRegression:
+  def __init__(self,lnrate,epoch):
+    self.lnrate=lnrate
+    self.epoch=epoch
+
+  def  fit(self,X,Y):
+    #number of training examples and number of features
+    self.m,self.n=X.shape #number of rows and columns
+
+    #initiating weights and bias
+    self.w=np.zeros(self.n)
+    self.b=0
+    self.X=X
+    self.Y=Y
+
+    #implementing Gradient descent algorithm for linear regression
+
+    for i in range(self.epoch):
+      self.update_weights()
+
+
+  def update_weights(self):
+    Y_predic=self.predict(self.X)
+
+    #calculating Gradients
+    dw = - (2 * (self.X.T).dot(self.Y - Y_predic)) / self.m
+
+    db = - 2 * np.sum(self.Y - Y_predic)/self.m
+
+    # upadating the weights
+
+    self.w = self.w - self.lnrate*dw
+    self.b = self.b - self.lnrate*db
+  def predict(self,X):
+    return X.dot(self.w) + self.b
+

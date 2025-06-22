@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Files</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='modern_global.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='modern.css') }}">
+</head>
+<body>
+    <h2 id="viewTitle">Files for: </h2>
+    <button class="main-btn" onclick="goBack()">Go Back</button>
+
+    <div id="fileList">
+        <h3>Question Files:</h3>
+        <ul id="quesFilesList"></ul>
+
+        <h3>Answer Files:</h3>
+        <ul id="ansFilesList"></ul>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", loadFiles);
+
+        function loadFiles() {
+            const cardId = localStorage.getItem("viewCardId");
+            const cardName = localStorage.getItem("viewCardName");
+            document.getElementById("viewTitle").innerText = "Files for: " + cardName;
+
+            fetch(`/get_files/${cardId}`)
+                .then(response => response.json())
+                .then(data => {
+                    displayFiles(data.ques, "quesFilesList");
+                    displayFiles(data.ans, "ansFilesList");
+                });
+        }
+
+        function displayFiles(files, elementId) {
+            const list = document.getElementById(elementId);
+            list.innerHTML = "";
+            files.forEach(file => {
+                const li = document.createElement("li");
+                li.innerHTML = `<a href="/uploads/${file}" target="_blank">${file}</a>`;
+                list.appendChild(li);
+            });
+        }
+
+        function goBack() {
+            window.location.href = "important.html";
+        }
+    </script>
+</body>
+</html>

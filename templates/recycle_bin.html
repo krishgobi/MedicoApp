@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deleted Files</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='documents.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='modern_global.css') }}">
+    <style>
+        .deleted-header { color: #c0392b; text-align: center; margin: 2rem 0 1rem 0; font-size: 2.2rem; }
+        .file-list { max-width: 700px; margin: 0 auto; }
+        .file-item { background: #fff3f3; border: 1px solid #e57373; border-radius: 10px; margin-bottom: 1.2rem; padding: 1.2rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+        .file-name { color: #c0392b; font-weight: 600; font-size: 1.1rem; }
+        .restore-btn { background: #27ae60; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.2rem; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
+        .restore-btn:hover { background: #219150; }
+        .empty-state { text-align: center; color: #c0392b; margin: 3rem 0; font-size: 1.2rem; }
+        .back-btn { margin: 2rem auto 0 auto; display: block; background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 0.7rem 2rem; font-size: 1rem; cursor: pointer; }
+        .back-btn:hover { background: #4338ca; }
+    </style>
+</head>
+<body>
+    <h2 class="deleted-header">🗑️ Deleted Files</h2>
+    <div class="file-list" id="deletedFilesList"></div>
+    <button class="back-btn" onclick="window.location.href='{{ url_for('documents') }}'">Back to Documents</button>
+    <script>
+        function fetchDeletedFiles() {
+            fetch('/api/files')
+                .then(res => res.json())
+                .then(files => {
+                    const deleted = files.filter(f => f.deleted === true);
+                    const list = document.getElementById('deletedFilesList');
+                    list.innerHTML = '';
+                    if (deleted.length === 0) {
+                        list.innerHTML = '<div class="empty-state">No deleted files.</div>';
+                        return;
+                    }
+                    deleted.sort((a, b) => new Date(b.upload_time) - new Date(a.upload_time));
+                    deleted.forEach(file => {
+                        const div = document.createElement('div');
+                        div.className = 'file-item';
+                        div.innerHTML = `
+                            <span class="file-name">${file.filename}</span>
+                            <span style="color:#888; font-size:0.95em; margin-left:10px;">Deleted: ${file.upload_time}</span>
+                            <button class="restore-btn" onclick="restoreFile('${file.filename}')">Restore</button>
+                        `;
+                        list.appendChild(div);
+                    });
+                })
+                .catch(() => {
+                    document.getElementById('deletedFilesList').innerHTML = '<div class="empty-state">Could not load deleted files.</div>';
+                });
+        }
+        function restoreFile(filename) {
+            fetch(`/api/restore/${filename}`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) fetchDeletedFiles();
+                    else alert(data.error || 'Restore failed');
+                });
+        }
+        fetchDeletedFiles();
+    </script>
+</body>
+</html>

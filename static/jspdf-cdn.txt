@@ -1,0 +1,2 @@
+// CDN for jsPDF
+// This file is intentionally left blank. jsPDF will be loaded via CDN in the template.

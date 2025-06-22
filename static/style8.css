@@ -1,0 +1,212 @@
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Arial', sans-serif;
+    }
+
+    body {
+        display: flex;
+        height: 100vh;
+        background-color: #f4f7fb;
+        color: #333;
+        font-size: 16px;
+        padding-left: 200px; /* Space for the sidebar */
+    }
+
+    /* Sidebar */
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        background: linear-gradient(145deg, #1c1c1c, #3a3a3a);
+        padding: 40px 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        height: 100vh;
+        width: 200px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        z-index: 10;
+    }
+
+    .sidebar .nav-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        margin-top: 20px;
+        width: 100%;
+    }
+
+    .nav-item {
+        width: 100%;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+    .nav-item:hover {
+        background: rgba(255, 255, 255, 0.4);
+    }
+
+    .nav-item span {
+        font-size: 28px;
+        color: white;
+    }
+
+    .nav-item p {
+        color: white;
+        font-size: 14px;
+        margin-top: 5px;
+        text-align: center;
+    }
+
+    /* Main Content */
+    .main-content {
+        flex: 1;
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        background-color: #f4f7fb;
+        width: calc(100% - 200px); /* Adjust content width considering sidebar */
+    }
+
+    .form-card {
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.1);
+        width: 400px;
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .form-card h3 {
+        font-size: 24px;
+        margin-bottom: 20px;
+        color: #333;
+    }
+
+    .form-card input[type="file"] {
+        display: none;
+    }
+
+    .form-card label {
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(145deg, #0066cc, #005bb5);
+        color: white;
+        padding: 12px 25px;
+        font-size: 18px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+        width: 100%;
+        max-width: 250px;
+        text-align: center;
+    }
+
+    .form-card label:hover {
+        background: linear-gradient(145deg, #005bb5, #0066cc);
+        transform: scale(1.05);
+    }
+
+    .form-card button {
+        width: 100%;
+        padding: 12px 20px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 18px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .form-card button:hover {
+        background-color: #218838;
+        transform: scale(1.05);
+    }
+
+    /* Uploaded Files List */
+    .uploaded-files {
+        display: none;
+        padding: 20px;
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.1);
+        width: 80%;
+        margin: 20px 0;
+    }
+
+    .uploaded-files h3 {
+        font-size: 24px;
+        color: #333;
+        margin-bottom: 20px;
+    }
+
+    .uploaded-files ul {
+        list-style: none;
+        padding: 0;
+    }
+
+    .uploaded-files li {
+        margin-bottom: 15px;
+        padding: 10px;
+        background-color: #f1f1f1;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .uploaded-files li span {
+        font-size: 18px;
+        color: #333;
+    }
+
+    .uploaded-files li input {
+        font-size: 16px;
+        padding: 5px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        margin-left: 10px;
+        width: 150px;
+    }
+
+    .uploaded-files li input:focus {
+        border-color: #005bb5;
+    }
+
+    /* Notification */
+    .notification {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #28a745;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 8px;
+        display: none;
+    }
+
+    .notification.show {
+        display: block;
+    }
+
+    .notification.error {
+        background-color: #dc3545;
+    }

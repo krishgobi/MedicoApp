@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>No History Found</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='modern_global.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='modern.css') }}">
+</head>
+<body>
+    <div class="message-container">
+        <h2>You have not added any history for "{{ subject_name }}" yet.</h2>
+        <a href="{{ url_for('view_subject')}}" class="btn-add-history">Click here to add history</a>
+    </div>
+</body>
+</html>
