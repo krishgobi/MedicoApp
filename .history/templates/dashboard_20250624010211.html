@@ -758,18 +758,36 @@
             setTimeout(() => {
                 // Remove the thinking message
                 chatbotMessages.removeChild(chatbotMessages.lastChild);
-                
-                // Simulate response (in a real app, this would be an API call)
+                // Dynamic response using backend data
                 let response = "I'm sorry, I can't process that right now. This is a simulated response.";
-                
-                if (question.includes('subject')) {
-                    response = "Here are your current subjects: <ul><li>Anatomy</li><li>Physiology</li><li>Pharmacology</li></ul>";
-                } else if (question.includes('reminder')) {
-                    response = "Upcoming reminders:<ul><li>Anatomy exam on June 15</li><li>Submit pharmacology report by June 20</li></ul>";
-                } else if (question.includes('staff')) {
-                    response = "Staff members:<ul><li>Dr. Smith (Anatomy)</li><li>Dr. Johnson (Physiology)</li><li>Dr. Williams (Pharmacology)</li></ul>";
+                const q = question.toLowerCase();
+                if (q.includes('date') || q.includes('today')) {
+                    response = `Today's date is <strong>${formatDate(today)}</strong>.`;
+                } else if (q.includes('subject')) {
+                    if (subjects && subjects.length > 0) {
+                        response = 'Here are your current subjects: <ul>' + subjects.map(s => `<li>${s.subname} (Staff: ${s.staffname})</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No subjects found.';
+                    }
+                } else if (q.includes('reminder')) {
+                    if (reminders && reminders.length > 0) {
+                        response = 'Upcoming reminders:<ul>' + reminders.map(r => `<li>${r.subject} - ${r.reminder_time}</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No upcoming reminders.';
+                    }
+                } else if (q.includes('staff')) {
+                    if (staffList && staffList.length > 0) {
+                        response = 'Staff members:<ul>' + staffList.map(st => `<li>${st}</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No staff found.';
+                    }
+                } else if (q.includes('patient')) {
+                    if (patients && patients.length > 0) {
+                        response = 'Recent patients:<ul>' + patients.map(p => `<li>${p}</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No recent patients.';
+                    }
                 }
-                
                 addChatMessage(response, 'bot');
             }, 1000);
         }
