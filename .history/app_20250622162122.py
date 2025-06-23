@@ -2,54 +2,14 @@ from flask import Flask, render_template, redirect, url_for, request, session, j
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
-from apscheduler.schedulers.background import BackgroundScheduler
-scheduler = BackgroundScheduler()
-scheduler.start()
-from flask import Response
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import pytz
 import requests
-import random
-from flask_migrate import Migrate
+import re
+from apscheduler.schedulers.background import BackgroundScheduler
+from twilio.rest import Client
+import pytz
 
 # Initialize Flask App
 app = Flask(__name__)
-
-# Email Configuration
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_USERNAME = "medicoapplication05@gmail.com"  # Replace with your Gmail
-SMTP_PASSWORD = "gdminhcuetlmxkpu"  # Replace with app-specific password
-SENDER_EMAIL = "medicoapplication05@gmail.com"  # Replace with your Gmail
-
-def send_email_reminder(to_email, subject, message):
-    try:
-        print(f"Preparing to send email to {to_email} via {SMTP_SERVER}:{SMTP_PORT}")
-        msg = MIMEMultipart()
-        msg['From'] = SENDER_EMAIL
-        msg['To'] = to_email
-        msg['Subject'] = subject
-
-        msg.attach(MIMEText(message, 'plain'))
-
-        print("Connecting to SMTP server...")
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        print("Starting TLS...")
-        server.starttls()
-        print("Logging in...")
-        server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        print("Sending email...")
-        server.send_message(msg)
-        server.quit()
-        print(f"Email sent successfully to {to_email}")
-        return True
-    except Exception as e:
-        import traceback
-        print(f"Failed to send email: {e}")
-        traceback.print_exc()
-        return False
 
 # Security & Configurations
 app.secret_key = "Sqlpassword@123"
@@ -58,7 +18,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize Database & Bcrypt
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
 bcrypt = Bcrypt(app)
 
 # ------------------------- MODELS -------------------------
@@ -118,31 +77,6 @@ class FileMeta(db.Model):
     upload_time = db.Column(db.DateTime, default=datetime.utcnow)
     deleted = db.Column(db.Boolean, default=False)
 
-# --- Conversation Model for Chatbot ---
-class Conversation(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.String(100), nullable=True)
-    message = db.Column(db.Text, nullable=False)
-    response = db.Column(db.Text, nullable=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    subject_history_id = db.Column(db.Integer, db.ForeignKey('subject_history.id'), nullable=True)
-
-# --- Remainder Model ---
-class Remainder(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.String(255), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    time = db.Column(db.Time, nullable=False)
-    link = db.Column(db.String(255), nullable=True)
-
-# --- Exam Model ---
-class Exam(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    subject = db.Column(db.String(100), nullable=False)
-    exam_type = db.Column(db.String(50), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    time = db.Column(db.Time, nullable=False)
-
 # ------------------------- DATABASE INITIALIZATION -------------------------
 with app.app_context():
     db.create_all()  # Create all tables again
@@ -161,6 +95,28 @@ with app.app_context():
             db.session.add(new_user)
     db.session.commit()
 
+# --- Twilio WhatsApp Config ---
+import os
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+
+TWILIO_ACCOUNT_SID = 'ACd2cb13aa3f9f0ac5c90a4e1025f750f4'
+TWILIO_AUTH_TOKEN = '6bffd7e0d657bc9b5fe0ea225ef6f309'
+TWILIO_WHATSAPP_FROM = '+15074188945'  # Twilio sandbox number
+WHATSAPP_TO = '+917200077663'  # Replace with the recipient's WhatsApp number
+
+scheduler = BackgroundScheduler()
+scheduler.start()
+
+# Helper to send WhatsApp message
+def send_whatsapp_reminder(subject, staff, date, note, phone=WHATSAPP_TO):
+    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    message = f"Reminder: Subject '{subject}' (Staff: {staff}) has an event on {date}. Note: {note}"
+    client.messages.create(
+        body=message,
+        from_=TWILIO_WHATSAPP_FROM,
+        to=phone
+    )
+
 # ------------------------- ROUTES -------------------------
 
 
@@ -169,29 +125,18 @@ with app.app_context():
 def index():
     return redirect(url_for('authenticate'))
 
-@app.route("/", methods=["GET", "POST"])
-def entry():
-    user_name = session.get('user_name', 'User')
-    remainders = Remainder.query.order_by(Remainder.date.asc()).all()
-    subjects = SubjectName.query.all()
-    num_subjects = len(subjects)
-    staff_list = sorted(set(s.staffname for s in subjects))
-    upcoming_exams = Exam.query.filter(Exam.date >= datetime.now().date()).order_by(Exam.date.asc()).all()
-    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list, user_name=user_name, remainders=remainders, upcoming_exams=upcoming_exams)
-
-@app.route("/dashboard")
+@app.route("/")
 def dashboard():
-    user_name = session.get('user_name', 'User')
-    remainders = Remainder.query.order_by(Remainder.date.asc()).all()
+    # Get number of subjects and staff list from DB
     subjects = SubjectName.query.all()
     num_subjects = len(subjects)
     staff_list = sorted(set(s.staffname for s in subjects))
-    upcoming_exams = Exam.query.filter(Exam.date >= datetime.now().date()).order_by(Exam.date.asc()).all()
-    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list, user_name=user_name, remainders=remainders, upcoming_exams=upcoming_exams)
+    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list)
 
 @app.route('/add_history', methods=['POST'])
 def add_subjecthistory():
     if request.method == 'POST':
+        
         # Retrieve form data
         subname = request.form['namesub']
         postingname = request.form['posting_name']
@@ -199,12 +144,27 @@ def add_subjecthistory():
         disease = request.form['disease_detail']
         remarks = request.form['remarks']
         
+        # Retrieve optional fields
+        duration = request.form.get('duration_date', None)
+        
         # Retrieve remainder date and time
         remainder_date = request.form['remainder_date']
         remainder_time = request.form['remainder_time']
+        
+        # Combine date and time into a single datetime object
         remainder_datetime = datetime.strptime(f"{remainder_date} {remainder_time}", '%Y-%m-%d %H:%M')
         
-        # Create and save history entry
+        # Handling extra fields if any (for example, extra fields might be dynamically added in the form)
+        extra_fields = request.form.get('extra_fields', None)  # For extra fields, assuming it's sent as JSON
+        
+        # If extra fields are provided as a JSON string, parse them
+        if extra_fields:
+            extra_fields = json.loads(extra_fields)
+
+        # Handle optional fields with proper date format
+        duration_date = datetime.strptime(duration, '%Y-%m-%d').date() if duration else None
+        
+        # Create a new SubjectHistory entry
         new_history = SubjectHistory(
             namesub=subname,
             date=datetime.strptime(request.form['date'], '%Y-%m-%d').date(),
@@ -212,47 +172,35 @@ def add_subjecthistory():
             patient_name=patientname,
             disease_detail=disease,
             remarks=remarks,
-            duration_date=datetime.strptime(request.form.get('duration_date'), '%Y-%m-%d').date() if request.form.get('duration_date') else None,
+            duration_date=duration_date,
             remainder_date=remainder_datetime.date(),
             remainder_time=remainder_datetime.time(),
-            extra_fields=json.loads(request.form.get('extra_fields')) if request.form.get('extra_fields') else None
+            extra_fields=extra_fields
         )
+
+        # Add to the session and commit to the database
         db.session.add(new_history)
         db.session.commit()
 
         flash("History added successfully!", "success")
-
-        # Schedule notifications
-        user_tz = pytz.timezone('Asia/Kolkata')
-        send_time = user_tz.localize(remainder_datetime)
+        # --- WhatsApp Reminder Scheduling ---
+        # Schedule message 10 minutes before remainder (customize as needed)
+        user_tz = pytz.timezone('Asia/Kolkata')  # Change to your timezone
+        send_time = user_tz.localize(remainder_datetime) - timedelta(minutes=10)
         now = datetime.now(user_tz)
-
-        # Get user's email from session
-        user_email = session.get('email')
-        if user_email:
-            email_subject = f"Medical History Reminder: {subname}"
-            email_message = f"""
-            Medical History Reminder:
-            Subject: {subname}
-            Patient: {patientname}
-            Disease: {disease}
-            Date & Time: {remainder_datetime.strftime('%Y-%m-%d %H:%M')}
-            Remarks: {remarks}
-            """
-
-            if send_time > now:
-                scheduler.add_job(
-                    send_email_reminder,
-                    'date',
-                    run_date=send_time,
-                    args=[user_email, email_subject, email_message],
-                    id=f"email_history_{new_history.id}",
-                    replace_existing=True
-                )
-            else:
-                send_email_reminder(user_email, email_subject, email_message)
-
-        return redirect(url_for('view_subject_details', subject_name=subname))
+        if send_time > now:
+            scheduler.add_job(
+                send_whatsapp_reminder,
+                'date',
+                run_date=send_time,
+                args=[subname, postingname, remainder_datetime.strftime('%Y-%m-%d %H:%M'), remarks, WHATSAPP_TO],
+                id=f"reminder_{new_history.id}",
+                replace_existing=True
+            )
+        else:
+            # If time is in the past, send immediately
+            send_whatsapp_reminder(subname, postingname, remainder_datetime.strftime('%Y-%m-%d %H:%M'), remarks, WHATSAPP_TO)
+        return redirect(url_for('view_subject_details',subject_name=subname))
 
 @app.route('/add_subject', methods=['POST'])
 def add_subject():
@@ -260,9 +208,16 @@ def add_subject():
         # Get form data
         subname = request.form['subname']
         staffname = request.form['staffname']
+        examdate = request.form['examdate']
         note = request.form['note']
-        # Use today's date as a default for examdate
-        examdate = datetime.now().date()
+        
+        # Convert examdate from string to a date object
+        try:
+            examdate = datetime.strptime(examdate, "%Y-%m-%d").date()
+        except ValueError:
+            flash('Invalid date format. Please use YYYY-MM-DD.', 'danger')
+            return redirect(url_for('add_subject_form'))  # Redirect back to the form
+        
         # Create a new SubjectName object
         subject = SubjectName(
             namesub=subname,
@@ -624,317 +579,62 @@ def recycle_bin():
     return render_template('recycle_bin.html')
 
 # --- Gemini Chatbot API ---
-GEMINI_API_KEY = "AIzaSyDSC0_iegx7FkpflShnjpJ8COLRqhh6wuE"
-GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
-
+GEMINI_API_KEY = "AIzaSyABcdZqp5FYzjKqQYEJc234YDbd123Uxa8"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY
 
 @app.route('/chatbot-gemini', methods=['POST'])
 def chatbot_gemini():
     data = request.json
     user_message = data.get('message', '')
-    
-    # Try to answer from database first
+    project_context = data.get('context', '')
+    # Try to answer from DB/local data first
     try:
-        # Convert message to lowercase for better matching
+        # Parse context
+        import json as _json
+        context = _json.loads(project_context) if project_context else {}
+        subjects = context.get('subjects', [])
+        filesData = context.get('filesData', {})
+        # Lowercase user message for matching
         msg = user_message.lower()
-        
-        # Check for specific medical history queries
-        if 'disease' in msg or 'condition' in msg:
-            histories = SubjectHistory.query.filter(
-                SubjectHistory.disease_detail.ilike(f'%{msg}%')
-            ).all()
-            if histories:
-                response = "Found these related medical histories:<br>"
-                for h in histories:
-                    response += f"• Patient: {h.patient_name} - {h.disease_detail}<br>"
-                return jsonify({"reply": response})
-
-        # Check for subject-related queries
-        if 'subject' in msg:
-            subjects = SubjectName.query.all()
-            if subjects:
-                response = "Here are the subjects:<br>"
-                for s in subjects:
-                    response += f"• {s.namesub} (Staff: {s.staffname})<br>"
-                return jsonify({"reply": response})
-
-        # Check for staff-related queries
-        if 'staff' in msg or 'teacher' in msg:
-            staff = SubjectName.query.with_entities(SubjectName.staffname).distinct().all()
-            if staff:
-                response = "Here are all staff members:<br>"
-                response += "<br>".join([f"• {s[0]}" for s in staff])
-                return jsonify({"reply": response})
-
-        # Check for reminders
-        if 'reminder' in msg or 'upcoming' in msg:
-            upcoming = SubjectHistory.query.filter(
-                SubjectHistory.remainder_date >= datetime.now().date()
-            ).order_by(SubjectHistory.remainder_date).limit(5).all()
-            if upcoming:
-                response = "Upcoming reminders:<br>"
-                for u in upcoming:
-                    response += f"• {u.namesub} on {u.remainder_date.strftime('%Y-%m-%d')} at {u.remainder_time.strftime('%H:%M')}<br>"
-                return jsonify({"reply": response})
-
-        # Check for patient history
-        if 'patient' in msg:
-            patients = SubjectHistory.query.with_entities(
-                SubjectHistory.patient_name, 
-                SubjectHistory.disease_detail
-            ).distinct().limit(5).all()
-            if patients:
-                response = "Recent patient records:<br>"
-                for p in patients:
-                    response += f"• {p[0]} - {p[1]}<br>"
-                return jsonify({"reply": response})
-
+        # Subject search
+        if 'subject' in msg and subjects:
+            return jsonify({"reply": 'Subjects:<br>' + '<br>'.join([f"<b>{s['name']}</b> (Staff: {s['staff']})" for s in subjects])})
+        # Staff search
+        if 'staff' in msg and subjects:
+            return jsonify({"reply": 'Staff for each subject:<br>' + '<br>'.join([f"<b>{s['name']}</b>: {s['staff']}" for s in subjects])})
+        # File search
+        if 'file' in msg and filesData:
+            out = ''
+            for subj, files in filesData.items():
+                if files:
+                    out += f"<b>{subj}</b>:<ul style='margin:0 0 0 1em;'>" + ''.join([f"<li>{f.get('label', f.get('name',''))}</li>" for f in files]) + '</ul>'
+            return jsonify({"reply": out if out else 'No files found.'})
+        # Direct subject name search
+        for s in subjects:
+            if s['name'].lower() in msg:
+                return jsonify({"reply": f"Subject: <b>{s['name']}</b><br>Staff: {s['staff']}"})
+        # Direct file label/name search
+        for subj, files in filesData.items():
+            for f in files:
+                if f.get('label','').lower() in msg or f.get('name','').lower() in msg:
+                    return jsonify({"reply": f"File: <b>{f.get('label', f.get('name',''))}</b> in <b>{subj}</b>"})
     except Exception as e:
-        print(f"Database query error: {str(e)}")
-
-    # If no database match, use Gemini API
+        pass  # fallback to Gemini
+    # If not found, use Gemini
+    GEMINI_API_KEY = "AIzaSyABcdZqp5FYzjKqQYEJc234YDbd123Uxa8"
+    GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GEMINI_API_KEY
+    prompt = f"User: {user_message}\nProject Data: {project_context}\nAssistant:"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
     try:
-        # Add medical context to the prompt
-        prompt = f"""User: {user_message}\nContext: This is a medical history management system. Topics include:\n- Patient medical histories and conditions\n- Subject and staff management\n- Medical reminders and appointments\n- Document management for medical records\n\nAssistant:"""
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}]
-        }
+        import requests
         resp = requests.post(GEMINI_API_URL, json=payload)
         resp.raise_for_status()
         gemini_reply = resp.json()['candidates'][0]['content']['parts'][0]['text']
         return jsonify({"reply": gemini_reply})
     except Exception as e:
         return jsonify({"reply": "Sorry, I couldn't reach Gemini API. (" + str(e) + ")"}), 500
-
-@app.route('/chat', methods=['POST'])
-def chat():
-    data = request.json
-    user_message = data.get('message')
-    # Use the models to answer questions
-    answer = answer_from_db(user_message)
-    # Save conversation
-    conversation = Conversation(message=user_message, response=answer)
-    db.session.add(conversation)
-    db.session.commit()
-    return jsonify({'response': answer})
-
-# --- Chatbot logic using your data ---
-def answer_from_db(user_message):
-    user_message = user_message.lower()
-    # Remainders
-    if 'remainder' in user_message or 'reminder' in user_message:
-        from datetime import date
-        remainders = Remainder.query.order_by(Remainder.date.asc()).all()
-        if not remainders:
-            return 'No remainders found.'
-        lines = []
-        for r in remainders:
-            status = ' (Deadline Ended)' if r.date < date.today() else ''
-            line = f'<li><a href="/view_remainders#rem-{r.id}" target="_blank">{r.content} - {r.date.strftime("%Y-%m-%d")}{status}</a></li>'
-            lines.append(line)
-        return '<ul>' + ''.join(lines) + '</ul>'
-    # Subjects
-    if 'subject' in user_message:
-        subjects = SubjectName.query.all()
-        if not subjects:
-            return 'No subjects found.'
-        lines = [f'<li><a href="/view_subject_details/{s.namesub}" target="_blank">{s.namesub}</a></li>' for s in subjects]
-        return '<ul>' + ''.join(lines) + '</ul>'
-    # Staff
-    if 'staff' in user_message:
-        staff = SubjectName.query.with_entities(SubjectName.staffname).distinct().all()
-        lines = [f'<li><a href="/view_subject?staff={s[0]}" target="_blank">{s[0]}</a></li>' for s in staff]
-        return '<ul>' + ''.join(lines) + '</ul>'
-    # Patient
-    if 'patient' in user_message:
-        patients = SubjectHistory.query.with_entities(SubjectHistory.patient_name).distinct().all()
-        lines = [f'<li><a href="/view_history?patient={p[0]}" target="_blank">{p[0]}</a></li>' for p in patients]
-        return '<ul>' + ''.join(lines) + '</ul>'
-    # Disease
-    if 'disease' in user_message:
-        diseases = SubjectHistory.query.with_entities(SubjectHistory.disease_detail).distinct().all()
-        lines = [f'<li><a href="/view_history?disease={d[0]}" target="_blank">{d[0]}</a></li>' for d in diseases]
-        return '<ul>' + ''.join(lines) + '</ul>'
-    # File
-    if 'file' in user_message or 'document' in user_message:
-        files = FileMeta.query.with_entities(FileMeta.filename).filter_by(deleted=False).all()
-        if not files:
-            return 'No files found.'
-        lines = [f'<li><a href="/uploads/{f[0]}" target="_blank">{f[0]}</a></li>' for f in files]
-        return '<ul>' + ''.join(lines) + '</ul>'
-    # Default
-    return "Sorry, I couldn't understand. Try asking about subjects, staff, patients, reminders, diseases, or files."
-# --- Export actual database data as CSV ---
-@app.route('/export_actual_data_csv')
-def export_actual_data_csv():
-    def generate():
-        # UserAuthentication
-        yield '# UserAuthentication Table\n'
-        yield 'user_id,name,email,password\n'
-        for u in UserAuthentication.query.all():
-            yield f'{u.id},{u.name},{u.email},{u.password}\n'
-        yield '\n# SubjectName Table\n'
-        yield 'subject_id,namesub,staffname,examdate,note\n'
-        for s in SubjectName.query.all():
-            yield f'{s.id},{s.namesub},{s.staffname},{s.examdate},{s.note}\n'
-        yield '\n# SubjectHistory Table\n'
-        yield 'history_id,namesub,date,posting_name,patient_name,disease_detail,remarks,duration_date,remainder_date,remainder_time,extra_fields\n'
-        for h in SubjectHistory.query.all():
-            extra = str(h.extra_fields).replace('\n',' ').replace(',',';') if h.extra_fields else ''
-            yield f'{h.id},{h.namesub},{h.date},{h.posting_name},{h.patient_name},{h.disease_detail},{h.remarks},{h.duration_date},{h.remainder_date},{h.remainder_time},{extra}\n'
-        yield '\n# FileMeta Table\n'
-        yield 'file_id,filename,subject,upload_time,deleted\n'
-        for f in FileMeta.query.all():
-            yield f'{f.id},{f.filename},{f.subject},{f.upload_time},{f.deleted}\n'
-    return Response(generate(), mimetype='text/csv', headers={"Content-Disposition": "attachment;filename=actual_medico_data.csv"})
-
-import os
-import zipfile
-from flask import send_file
-
-@app.route('/download_all_pdfs')
-def download_all_pdfs():
-    # Folders to search for PDFs
-    pdf_dirs = ['uploads', 'uplo', 'uploads/', 'uplo/']
-    pdf_files = []
-    for d in pdf_dirs:
-        if os.path.exists(d):
-            for fname in os.listdir(d):
-                if fname.lower().endswith('.pdf'):
-                    pdf_files.append(os.path.join(d, fname))
-    # Create a zip in memory
-    zip_path = 'all_medico_pdfs.zip'
-    with zipfile.ZipFile(zip_path, 'w') as zipf:
-        for f in pdf_files:
-            zipf.write(f, os.path.relpath(f))
-    return send_file(zip_path, as_attachment=True)
-
-@app.route('/add_remainder', methods=['POST'])
-def add_remainder():
-    if request.method == 'POST':
-        content = request.form['content']
-        date_str = request.form['date']
-        time_str = request.form['time']
-        link = request.form.get('link', None)
-        user_email = request.form.get('email') or session.get('user_email')
-        reminder_offset = int(request.form.get('reminder_offset', 20))  # Default 20 mins
-        try:
-            date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            time = datetime.strptime(time_str, '%H:%M').time()
-        except ValueError:
-            flash('Invalid date or time format for remainder.', 'danger')
-            return redirect(url_for('dashboard'))
-        remainder = Remainder(content=content, date=date, time=time, link=link)
-        db.session.add(remainder)
-        db.session.commit()
-        flash('Remainder added successfully!', 'success')
-
-        # Schedule both WhatsApp and Email reminders with user-selected offset
-        user_tz = pytz.timezone('Asia/Kolkata')
-        send_time = user_tz.localize(datetime.combine(date, time)) - timedelta(minutes=reminder_offset)
-        now = datetime.now(user_tz)
-        phone_number = "917200077663"  # Set your recipient phone number here
-        email_subject = f"Reminder: {content}"
-        email_message = f"""
-        Reminder Details:
-        Content: {content}
-        Date: {date_str}
-        Time: {time_str}
-        """
-        if link:
-            email_message += f"\nRelated Link: {link}"
-        if user_email:
-            if send_time > now:
-                # Schedule email reminder
-                scheduler.add_job(
-                    send_email_reminder,
-                    'date',
-                    run_date=send_time,
-                    args=[user_email, email_subject, email_message],
-                    id=f"email_reminder_{remainder.id}",
-                    replace_existing=True
-                )
-            else:
-                send_email_reminder(user_email, email_subject, email_message)
-        else:
-            flash('No email provided for reminder.', 'danger')
-        return redirect(url_for('dashboard'))
-
-@app.route('/view_remainders')
-def view_remainders():
-    from datetime import date
-    remainders = Remainder.query.order_by(Remainder.date.asc()).all()
-    return render_template('remainders.html', remainders=remainders, current_date=date.today())
-
-
-
-@app.route('/verify_code', methods=['GET', 'POST'])
-def verify_code():
-    if request.method == 'POST':
-        input_code = request.form['code']
-        if 'pending_code' in session and input_code == session['pending_code']:
-            # Successful verification
-            session['user_email'] = session['pending_email']
-            session['user_name'] = session['pending_name']
-            session['is_authenticated'] = True
-            session.pop('pending_code', None)
-            session.pop('pending_email', None)
-            session.pop('pending_name', None)
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Invalid code. Please try again.')
-    return render_template('verify_code.html')
-
-@app.route('/login_code', methods=['GET', 'POST'])
-def login_code():
-    if request.method == 'POST':
-        input_code = request.form['code']
-        if 'last_code' in session and input_code == session['last_code']:
-            session['is_authenticated'] = True
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Invalid code. Please try again.')
-    # If not POST or failed, show code entry
-    return render_template('verify_code.html')
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login_code'))
-
-@app.route('/add_exam', methods=['POST'])
-def add_exam():
-    if request.method == 'POST':
-        subject = request.form['subject']
-        exam_type = request.form['exam_type']
-        # Exam date removed from form and backend
-        time_str = request.form['time']
-        try:
-            # Use today's date as default since date is removed
-            exam_date = datetime.now().date()
-            exam_time = datetime.strptime(time_str, "%H:%M").time()
-        except ValueError:
-            flash('Invalid time format.', 'danger')
-            return redirect(url_for('dashboard'))
-        new_exam = Exam(subject=subject, exam_type=exam_type, date=exam_date, time=exam_time)
-        try:
-            db.session.add(new_exam)
-            db.session.commit()
-            flash('Exam added successfully!', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Error adding exam: {str(e)}', 'danger')
-        return redirect(url_for('dashboard'))
-
-@app.route('/rename_profile', methods=['POST'])
-def rename_profile():
-    data = request.get_json()
-    new_name = data.get('newProfileName', '').strip()
-    if not new_name:
-        return jsonify({'success': False, 'message': 'No new name provided.'}), 400
-    # Remove login check, just update session and return success
-    session['user_name'] = new_name
-    return jsonify({'success': True, 'message': 'Profile name updated.'})
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -459,7 +459,7 @@
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
                         <li><h6 class="dropdown-header">Signed in as <strong>{{ user_name }}</strong></h6></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#renameProfileModal"><i class="fas fa-user-edit me-2"></i> Rename Profile</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i> Profile</a></li>
                         <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i> Settings</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
@@ -562,6 +562,10 @@
                             <div class="mb-3">
                                 <label for="staffname" class="form-label">Staff Name</label>
                                 <input type="text" class="form-control" id="staffname" name="staffname" placeholder="Enter staff name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="examdate" class="form-label">Exam Date</label>
+                                <input type="date" class="form-control" id="examdate" name="examdate" required>
                             </div>
                             <div class="mb-3">
                                 <label for="note" class="form-label">Notes</label>
@@ -803,7 +807,7 @@
         }
 
         // Handle profile rename form submission
-        document.getElementById('renameProfileForm').addEventListener('submit', function(e) {
+        document.getElementById('renameProfileForm')?.addEventListener('submit', function(e) {
             e.preventDefault();
             const newName = document.getElementById('newProfileName').value.trim();
             if (newName) {

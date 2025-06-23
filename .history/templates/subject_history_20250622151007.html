@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subject History</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="{{ url_for('static', filename='modern_global.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='modern.css') }}">
+    <style>
+        .container {
+    max-width: 1100px;
+    margin: 2.5rem auto;
+    padding: 2.5rem 1.5rem;
+    background: var(--bg-modal, #fff);
+    border-radius: var(--radius-xl, 1rem);
+    box-shadow: var(--shadow-md);
+}
+
+h1 {
+    text-align: center;
+    color: var(--primary-dark);
+    font-size: 2.3rem;
+    margin-bottom: 2.5rem;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+
+.subject-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+    margin-top: 1.5rem;
+}
+
+.subject-card {
+    background: #fff;
+    border-radius: var(--radius-lg, 0.75rem);
+    box-shadow: var(--shadow);
+    padding: 2rem 1.5rem 1.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    transition: box-shadow 0.2s, transform 0.2s;
+    border: 1.5px solid var(--border-color);
+    position: relative;
+    min-height: 170px;
+}
+
+.subject-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-4px) scale(1.02);
+    border-color: var(--primary-light);
+}
+
+.subject-card h3 {
+    font-size: 1.35rem;
+    color: var(--primary-color);
+    margin-bottom: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.subject-card h3 a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.subject-card h3 a:hover {
+    color: var(--secondary-color);
+    text-decoration: underline;
+}
+
+.subject-card p {
+    color: var(--text-light);
+    font-size: 1.08rem;
+    margin-bottom: 0.5rem;
+}
+
+.subject-card .meta {
+    margin-top: 0.7rem;
+    font-size: 0.98rem;
+    color: var(--text-light);
+}
+
+.no-records {
+    text-align: center;
+    margin: 4rem 0 2rem 0;
+    color: var(--text-light);
+}
+
+.no-records .icon {
+    font-size: 3.5rem;
+    margin-bottom: 1.2rem;
+    color: var(--primary-light);
+}
+
+.no-records h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--primary-dark);
+}
+
+@media (max-width: 700px) {
+    .container {
+        padding: 1rem 0.2rem;
+    }
+    .subject-card {
+        padding: 1.2rem 0.7rem 1rem 0.7rem;
+    }
+    .subject-grid {
+        gap: 1rem;
+    }
+}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Subject History</h1>
+
+        {% if subjects %}
+            <div class="subject-grid">
+                {% for subject in subjects %}
+                    <div class="subject-card">
+                        <h3><a href="{{ url_for('view_subject_details', subject_name=subject.namesub) }}">{{ subject.namesub }}</a></h3>
+                        <p><strong>Staff:</strong> {{ subject.staffname }}</p>
+                        <div class="meta">
+                            
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+           
+        {% else %}
+            <div class="no-records">
+                <div class="icon">📭</div>
+                <h2>No Subjects Found</h2>
+                <p>You haven't viewed any subjects yet. When you do, they'll appear here for your reference.</p>
+            </div>
+        {% endif %}
+    </div>
+
+</body>
+</html>

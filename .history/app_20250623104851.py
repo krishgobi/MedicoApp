@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 scheduler = BackgroundScheduler()
 scheduler.start()
+from twilio.rest import Client
 from flask import Response
 import smtplib
 from email.mime.text import MIMEText
@@ -161,6 +162,24 @@ with app.app_context():
             db.session.add(new_user)
     db.session.commit()
 
+# --- Twilio WhatsApp Config ---
+ACCOUNT_SID = "AC8ab66d2f801547805cc1d20add4449e3"
+AUTH_TOKEN = "d66c5ad3b0e5f149e529925ee4ace8c6"
+TWILIO_WHATSAPP_NUMBER = "whatsapp:+14155238886"
+client = Client(ACCOUNT_SID, AUTH_TOKEN)
+
+def send_whatsapp_reminder(message, phone_number):
+    try:
+        msg = client.messages.create(
+            from_=TWILIO_WHATSAPP_NUMBER,
+            body=message,
+            to=f"whatsapp:{7200077663}"  # Replace with the actual phone number (without +)
+        )
+        return msg.sid
+    except Exception as e:
+        print(f"Failed to send WhatsApp message: {e}")
+        return None
+
 # ------------------------- ROUTES -------------------------
 
 
@@ -226,6 +245,7 @@ def add_subjecthistory():
         user_tz = pytz.timezone('Asia/Kolkata')
         send_time = user_tz.localize(remainder_datetime)
         now = datetime.now(user_tz)
+        phone_number = "917200077663"
 
         # Get user's email from session
         user_email = session.get('email')
@@ -249,8 +269,16 @@ def add_subjecthistory():
                     id=f"email_history_{new_history.id}",
                     replace_existing=True
                 )
+                scheduler.add_job(
+                    lambda: send_whatsapp_reminder(f"{subname}: {remarks}", phone_number),
+                    'date',
+                    run_date=send_time,
+                    id=f"whatsapp_history_{new_history.id}",
+                    replace_existing=True
+                )
             else:
                 send_email_reminder(user_email, email_subject, email_message)
+                send_whatsapp_reminder(f"{subname}: {remarks}", phone_number)
 
         return redirect(url_for('view_subject_details', subject_name=subname))
 
@@ -260,9 +288,16 @@ def add_subject():
         # Get form data
         subname = request.form['subname']
         staffname = request.form['staffname']
+        examdate = request.form['examdate']
         note = request.form['note']
-        # Use today's date as a default for examdate
-        examdate = datetime.now().date()
+        
+        # Convert examdate from string to a date object
+        try:
+            examdate = datetime.strptime(examdate, "%Y-%m-%d").date()
+        except ValueError:
+            flash('Invalid date format. Please use YYYY-MM-DD.', 'danger')
+            return redirect(url_for('add_subject_form'))  # Redirect back to the form
+        
         # Create a new SubjectName object
         subject = SubjectName(
             namesub=subname,
@@ -854,8 +889,17 @@ def add_remainder():
                     id=f"email_reminder_{remainder.id}",
                     replace_existing=True
                 )
+                # Schedule WhatsApp reminder
+                scheduler.add_job(
+                    lambda: send_whatsapp_reminder(content, phone_number),
+                    'date',
+                    run_date=send_time,
+                    id=f"whatsapp_reminder_{remainder.id}",
+                    replace_existing=True
+                )
             else:
                 send_email_reminder(user_email, email_subject, email_message)
+                send_whatsapp_reminder(content, phone_number)
         else:
             flash('No email provided for reminder.', 'danger')
         return redirect(url_for('dashboard'))
@@ -902,39 +946,7 @@ def logout():
     session.clear()
     return redirect(url_for('login_code'))
 
-@app.route('/add_exam', methods=['POST'])
-def add_exam():
-    if request.method == 'POST':
-        subject = request.form['subject']
-        exam_type = request.form['exam_type']
-        # Exam date removed from form and backend
-        time_str = request.form['time']
-        try:
-            # Use today's date as default since date is removed
-            exam_date = datetime.now().date()
-            exam_time = datetime.strptime(time_str, "%H:%M").time()
-        except ValueError:
-            flash('Invalid time format.', 'danger')
-            return redirect(url_for('dashboard'))
-        new_exam = Exam(subject=subject, exam_type=exam_type, date=exam_date, time=exam_time)
-        try:
-            db.session.add(new_exam)
-            db.session.commit()
-            flash('Exam added successfully!', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Error adding exam: {str(e)}', 'danger')
-        return redirect(url_for('dashboard'))
 
-@app.route('/rename_profile', methods=['POST'])
-def rename_profile():
-    data = request.get_json()
-    new_name = data.get('newProfileName', '').strip()
-    if not new_name:
-        return jsonify({'success': False, 'message': 'No new name provided.'}), 400
-    # Remove login check, just update session and return success
-    session['user_name'] = new_name
-    return jsonify({'success': True, 'message': 'Profile name updated.'})
 
 if __name__ == '__main__':
     app.run(debug=True)

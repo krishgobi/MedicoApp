@@ -212,6 +212,7 @@
         .modal-title {
             font-weight: 700;
             color: var(--primary);
+            font-size: 2rem;
         }
 
         .modal-body {
@@ -397,6 +398,21 @@
             overflow-y: auto;
         }
 
+        /* Staff List Font Size */
+        .dashboard-card .list-unstyled li {
+            font-size: 1.25rem;
+            font-weight: 500;
+        }
+
+        /* History Button */
+        .dashboard-history-btn {
+            font-size: 1.1rem;
+            font-weight: 600;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
         /* Responsive */
         @media (max-width: 992px) {
             .sidebar {
@@ -538,10 +554,13 @@
 
         <!-- Action Buttons -->
         <div class="row">
-            <div class="col-12 mb-4">
+            <div class="col-12 mb-4 d-flex align-items-center justify-content-between">
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
                     <i class="fas fa-plus me-2"></i> Add Subject
                 </button>
+                <a href="{{ url_for('view_history') }}" class="btn btn-outline-primary dashboard-history-btn">
+                    <i class="fas fa-history me-2"></i> History
+                </a>
             </div>
         </div>
 
@@ -727,22 +746,23 @@
         const chatbotInput = document.getElementById('chatbot-input');
         const chatbotSend = document.getElementById('chatbot-send');
 
-        chatbotToggle.addEventListener('click', () => {
-            chatbotWidget.style.display = 'flex';
-        });
+        // Dynamic data from backend (Jinja2 to JS)
+        const subjects = {{ subjects|tojson|safe }};
+        const reminders = {{ reminders|tojson|safe }};
+        const staffList = {{ staff_list|tojson|safe }};
+        const patients = {{ patients|tojson|safe }};
+        const today = new Date("{{ current_date|default('now') }}");
 
-        chatbotClose.addEventListener('click', () => {
-            chatbotWidget.style.display = 'none';
-        });
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
 
         function addChatMessage(text, sender) {
             const msg = document.createElement('div');
             msg.className = `chatbot-message ${sender} fade-in`;
-            
             const bubble = document.createElement('div');
             bubble.className = 'chat-bubble';
             bubble.innerHTML = text;
-            
             msg.appendChild(bubble);
             chatbotMessages.appendChild(msg);
             chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
@@ -751,25 +771,38 @@
         function askBot(question) {
             addChatMessage(question, 'user');
             chatbotInput.value = '';
-            
-            // Simulate thinking
             addChatMessage('<i class="fas fa-spinner fa-spin me-2"></i> Thinking...', 'bot');
-            
             setTimeout(() => {
-                // Remove the thinking message
                 chatbotMessages.removeChild(chatbotMessages.lastChild);
-                
-                // Simulate response (in a real app, this would be an API call)
                 let response = "I'm sorry, I can't process that right now. This is a simulated response.";
-                
-                if (question.includes('subject')) {
-                    response = "Here are your current subjects: <ul><li>Anatomy</li><li>Physiology</li><li>Pharmacology</li></ul>";
-                } else if (question.includes('reminder')) {
-                    response = "Upcoming reminders:<ul><li>Anatomy exam on June 15</li><li>Submit pharmacology report by June 20</li></ul>";
-                } else if (question.includes('staff')) {
-                    response = "Staff members:<ul><li>Dr. Smith (Anatomy)</li><li>Dr. Johnson (Physiology)</li><li>Dr. Williams (Pharmacology)</li></ul>";
+                const q = question.toLowerCase();
+                if (q.includes('date') || q.includes('today')) {
+                    response = `Today's date is <strong>${formatDate(today)}</strong>.`;
+                } else if (q.includes('subject')) {
+                    if (subjects.length > 0) {
+                        response = 'Here are your current subjects: <ul>' + subjects.map(s => `<li>${s.subname} (Staff: ${s.staffname})</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No subjects found.';
+                    }
+                } else if (q.includes('reminder')) {
+                    if (reminders.length > 0) {
+                        response = 'Upcoming reminders:<ul>' + reminders.map(r => `<li>${r.subject} - ${r.reminder_time}</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No upcoming reminders.';
+                    }
+                } else if (q.includes('staff')) {
+                    if (staffList.length > 0) {
+                        response = 'Staff members:<ul>' + staffList.map(st => `<li>${st}</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No staff found.';
+                    }
+                } else if (q.includes('patient')) {
+                    if (patients.length > 0) {
+                        response = 'Recent patients:<ul>' + patients.map(p => `<li>${p}</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No recent patients.';
+                    }
                 }
-                
                 addChatMessage(response, 'bot');
             }, 1000);
         }

@@ -135,14 +135,6 @@ class Remainder(db.Model):
     time = db.Column(db.Time, nullable=False)
     link = db.Column(db.String(255), nullable=True)
 
-# --- Exam Model ---
-class Exam(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    subject = db.Column(db.String(100), nullable=False)
-    exam_type = db.Column(db.String(50), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    time = db.Column(db.Time, nullable=False)
-
 # ------------------------- DATABASE INITIALIZATION -------------------------
 with app.app_context():
     db.create_all()  # Create all tables again
@@ -163,31 +155,58 @@ with app.app_context():
 
 # ------------------------- ROUTES -------------------------
 
-
-
-@app.route("/index")
-def index():
-    return redirect(url_for('authenticate'))
-
 @app.route("/", methods=["GET", "POST"])
 def entry():
-    user_name = session.get('user_name', 'User')
-    remainders = Remainder.query.order_by(Remainder.date.asc()).all()
-    subjects = SubjectName.query.all()
-    num_subjects = len(subjects)
-    staff_list = sorted(set(s.staffname for s in subjects))
-    upcoming_exams = Exam.query.filter(Exam.date >= datetime.now().date()).order_by(Exam.date.asc()).all()
-    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list, user_name=user_name, remainders=remainders, upcoming_exams=upcoming_exams)
+    # If already authenticated, go to dashboard
+    if session.get('is_authenticated'):
+        return redirect(url_for('dashboard'))
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        code = str(random.randint(1000, 9999))
+        session['pending_email'] = email
+        session['pending_name'] = name
+        session['pending_code'] = code
+        # Send code to email
+        send_email_reminder(email, 'Your Login Code', f'Your verification code is: {code}')
+        flash('A 4-digit code has been sent to your email. Please enter it below.')
+        return redirect(url_for('verify_code'))
+    return render_template('register.html')
 
-@app.route("/dashboard")
+@app.route('/verify_code', methods=['GET', 'POST'])
+def verify_code():
+    if request.method == 'POST':
+        input_code = request.form['code']
+        if 'pending_code' in session and input_code == session['pending_code']:
+            # Successful verification
+            session['user_email'] = session['pending_email']
+            session['user_name'] = session['pending_name']
+            session['is_authenticated'] = True
+            session.pop('pending_code', None)
+            session.pop('pending_email', None)
+            session.pop('pending_name', None)
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid code. Please try again.')
+    return render_template('verify_code.html')
+
+@app.route('/dashboard')
 def dashboard():
+    if not session.get('is_authenticated'):
+        return redirect(url_for('entry'))
     user_name = session.get('user_name', 'User')
+    user_email = session.get('user_email', '')
+    # Show all remainders (no user filtering)
     remainders = Remainder.query.order_by(Remainder.date.asc()).all()
     subjects = SubjectName.query.all()
     num_subjects = len(subjects)
     staff_list = sorted(set(s.staffname for s in subjects))
-    upcoming_exams = Exam.query.filter(Exam.date >= datetime.now().date()).order_by(Exam.date.asc()).all()
-    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list, user_name=user_name, remainders=remainders, upcoming_exams=upcoming_exams)
+    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list, user_name=user_name, user_email=user_email, remainders=remainders)
+
+@app.route('/logout')
+def logouta():
+    session.clear()
+    return redirect(url_for('entry'))
 
 @app.route('/add_history', methods=['POST'])
 def add_subjecthistory():
@@ -260,9 +279,16 @@ def add_subject():
         # Get form data
         subname = request.form['subname']
         staffname = request.form['staffname']
+        examdate = request.form['examdate']
         note = request.form['note']
-        # Use today's date as a default for examdate
-        examdate = datetime.now().date()
+        
+        # Convert examdate from string to a date object
+        try:
+            examdate = datetime.strptime(examdate, "%Y-%m-%d").date()
+        except ValueError:
+            flash('Invalid date format. Please use YYYY-MM-DD.', 'danger')
+            return redirect(url_for('add_subject_form'))  # Redirect back to the form
+        
         # Create a new SubjectName object
         subject = SubjectName(
             namesub=subname,
@@ -816,8 +842,6 @@ def add_remainder():
         date_str = request.form['date']
         time_str = request.form['time']
         link = request.form.get('link', None)
-        user_email = request.form.get('email') or session.get('user_email')
-        reminder_offset = int(request.form.get('reminder_offset', 20))  # Default 20 mins
         try:
             date = datetime.strptime(date_str, '%Y-%m-%d').date()
             time = datetime.strptime(time_str, '%H:%M').time()
@@ -829,11 +853,10 @@ def add_remainder():
         db.session.commit()
         flash('Remainder added successfully!', 'success')
 
-        # Schedule both WhatsApp and Email reminders with user-selected offset
+        # Schedule both Email reminders 20 minutes before
         user_tz = pytz.timezone('Asia/Kolkata')
-        send_time = user_tz.localize(datetime.combine(date, time)) - timedelta(minutes=reminder_offset)
+        send_time = user_tz.localize(datetime.combine(date, time)) - timedelta(minutes=20)
         now = datetime.now(user_tz)
-        phone_number = "917200077663"  # Set your recipient phone number here
         email_subject = f"Reminder: {content}"
         email_message = f"""
         Reminder Details:
@@ -843,21 +866,19 @@ def add_remainder():
         """
         if link:
             email_message += f"\nRelated Link: {link}"
-        if user_email:
-            if send_time > now:
-                # Schedule email reminder
-                scheduler.add_job(
-                    send_email_reminder,
-                    'date',
-                    run_date=send_time,
-                    args=[user_email, email_subject, email_message],
-                    id=f"email_reminder_{remainder.id}",
-                    replace_existing=True
-                )
-            else:
-                send_email_reminder(user_email, email_subject, email_message)
+        if send_time > now:
+            # Schedule email reminder
+            scheduler.add_job(
+                send_email_reminder,
+                'date',
+                run_date=send_time,
+                args=['test@example.com', email_subject, email_message],
+                id=f"email_reminder_{remainder.id}",
+                replace_existing=True
+            )
         else:
-            flash('No email provided for reminder.', 'danger')
+            # Send immediately if time has passed
+            send_email_reminder('test@example.com', email_subject, email_message)
         return redirect(url_for('dashboard'))
 
 @app.route('/view_remainders')
@@ -866,24 +887,20 @@ def view_remainders():
     remainders = Remainder.query.order_by(Remainder.date.asc()).all()
     return render_template('remainders.html', remainders=remainders, current_date=date.today())
 
-
-
-@app.route('/verify_code', methods=['GET', 'POST'])
-def verify_code():
+@app.route('/register', methods=['GET', 'POST'])
+def register():
     if request.method == 'POST':
-        input_code = request.form['code']
-        if 'pending_code' in session and input_code == session['pending_code']:
-            # Successful verification
-            session['user_email'] = session['pending_email']
-            session['user_name'] = session['pending_name']
-            session['is_authenticated'] = True
-            session.pop('pending_code', None)
-            session.pop('pending_email', None)
-            session.pop('pending_name', None)
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Invalid code. Please try again.')
-    return render_template('verify_code.html')
+        name = request.form['name']
+        email = request.form['email']
+        code = str(random.randint(1000, 9999))
+        session['pending_email'] = email
+        session['pending_name'] = name
+        session['pending_code'] = code
+        # Send code to email
+        send_email_reminder(email, 'Your Login Code', f'Your verification code is: {code}')
+        flash('A 4-digit code has been sent to your email. Please enter it below.')
+        return redirect(url_for('verify_code'))
+    return render_template('register.html')
 
 @app.route('/login_code', methods=['GET', 'POST'])
 def login_code():
@@ -902,39 +919,9 @@ def logout():
     session.clear()
     return redirect(url_for('login_code'))
 
-@app.route('/add_exam', methods=['POST'])
-def add_exam():
-    if request.method == 'POST':
-        subject = request.form['subject']
-        exam_type = request.form['exam_type']
-        # Exam date removed from form and backend
-        time_str = request.form['time']
-        try:
-            # Use today's date as default since date is removed
-            exam_date = datetime.now().date()
-            exam_time = datetime.strptime(time_str, "%H:%M").time()
-        except ValueError:
-            flash('Invalid time format.', 'danger')
-            return redirect(url_for('dashboard'))
-        new_exam = Exam(subject=subject, exam_type=exam_type, date=exam_date, time=exam_time)
-        try:
-            db.session.add(new_exam)
-            db.session.commit()
-            flash('Exam added successfully!', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Error adding exam: {str(e)}', 'danger')
-        return redirect(url_for('dashboard'))
-
-@app.route('/rename_profile', methods=['POST'])
-def rename_profile():
-    data = request.get_json()
-    new_name = data.get('newProfileName', '').strip()
-    if not new_name:
-        return jsonify({'success': False, 'message': 'No new name provided.'}), 400
-    # Remove login check, just update session and return success
-    session['user_name'] = new_name
-    return jsonify({'success': True, 'message': 'Profile name updated.'})
-
-if __name__ == '__main__':
-    app.run(debug=True)
+@app.before_request
+def require_login():
+    allowed_routes = ['entry', 'verify_code', 'static']
+    if request.endpoint not in allowed_routes:
+        if not session.get('is_authenticated'):
+            return redirect(url_for('entry'))

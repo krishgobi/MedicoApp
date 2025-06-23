@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Code</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body { background: #f8f9fa; }
+        .center-box {
+            max-width: 400px;
+            margin: 80px auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+            padding: 2.5rem 2rem 2rem 2rem;
+        }
+        .form-label { font-weight: 500; }
+    </style>
+</head>
+<body>
+<div class="center-box">
+    <h3 class="mb-4 text-center">Enter Verification Code</h3>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="code" class="form-label">4-digit Code</label>
+            <input type="text" class="form-control" id="code" name="code" maxlength="4" required pattern="\d{4}">
+        </div>
+        <button type="submit" class="btn btn-success w-100">Verify</button>
+    </form>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-danger mt-3">{{ messages[0] }}</div>
+      {% endif %}
+    {% endwith %}
+</div>
+</body>
+</html>

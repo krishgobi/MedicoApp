@@ -260,9 +260,16 @@ def add_subject():
         # Get form data
         subname = request.form['subname']
         staffname = request.form['staffname']
+        examdate = request.form['examdate']
         note = request.form['note']
-        # Use today's date as a default for examdate
-        examdate = datetime.now().date()
+        
+        # Convert examdate from string to a date object
+        try:
+            examdate = datetime.strptime(examdate, "%Y-%m-%d").date()
+        except ValueError:
+            flash('Invalid date format. Please use YYYY-MM-DD.', 'danger')
+            return redirect(url_for('add_subject_form'))  # Redirect back to the form
+        
         # Create a new SubjectName object
         subject = SubjectName(
             namesub=subname,

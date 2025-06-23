@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 scheduler = BackgroundScheduler()
 scheduler.start()
+from twilio.rest import Client
 from flask import Response
 import smtplib
 from email.mime.text import MIMEText
@@ -12,7 +13,6 @@ from email.mime.multipart import MIMEMultipart
 import pytz
 import requests
 import random
-from flask_migrate import Migrate
 
 # Initialize Flask App
 app = Flask(__name__)
@@ -21,7 +21,7 @@ app = Flask(__name__)
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_USERNAME = "medicoapplication05@gmail.com"  # Replace with your Gmail
-SMTP_PASSWORD = "gdminhcuetlmxkpu"  # Replace with app-specific password
+SMTP_PASSWORD = "gdminhcuetlm"  # Replace with app-specific password
 SENDER_EMAIL = "medicoapplication05@gmail.com"  # Replace with your Gmail
 
 def send_email_reminder(to_email, subject, message):
@@ -58,7 +58,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize Database & Bcrypt
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
 bcrypt = Bcrypt(app)
 
 # ------------------------- MODELS -------------------------
@@ -135,14 +134,6 @@ class Remainder(db.Model):
     time = db.Column(db.Time, nullable=False)
     link = db.Column(db.String(255), nullable=True)
 
-# --- Exam Model ---
-class Exam(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    subject = db.Column(db.String(100), nullable=False)
-    exam_type = db.Column(db.String(50), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    time = db.Column(db.Time, nullable=False)
-
 # ------------------------- DATABASE INITIALIZATION -------------------------
 with app.app_context():
     db.create_all()  # Create all tables again
@@ -161,6 +152,24 @@ with app.app_context():
             db.session.add(new_user)
     db.session.commit()
 
+# --- Twilio WhatsApp Config ---
+ACCOUNT_SID = "AC8ab66d2f801547805cc1d20add4449e3"
+AUTH_TOKEN = "d66c5ad3b0e5f149e529925ee4ace8c6"
+TWILIO_WHATSAPP_NUMBER = "whatsapp:+14155238886"
+client = Client(ACCOUNT_SID, AUTH_TOKEN)
+
+def send_whatsapp_reminder(message, phone_number):
+    try:
+        msg = client.messages.create(
+            from_=TWILIO_WHATSAPP_NUMBER,
+            body=message,
+            to=f"whatsapp:{7200077663}"  # Replace with the actual phone number (without +)
+        )
+        return msg.sid
+    except Exception as e:
+        print(f"Failed to send WhatsApp message: {e}")
+        return None
+
 # ------------------------- ROUTES -------------------------
 
 
@@ -169,25 +178,16 @@ with app.app_context():
 def index():
     return redirect(url_for('authenticate'))
 
-@app.route("/", methods=["GET", "POST"])
-def entry():
-    user_name = session.get('user_name', 'User')
-    remainders = Remainder.query.order_by(Remainder.date.asc()).all()
-    subjects = SubjectName.query.all()
-    num_subjects = len(subjects)
-    staff_list = sorted(set(s.staffname for s in subjects))
-    upcoming_exams = Exam.query.filter(Exam.date >= datetime.now().date()).order_by(Exam.date.asc()).all()
-    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list, user_name=user_name, remainders=remainders, upcoming_exams=upcoming_exams)
-
-@app.route("/dashboard")
+@app.route("/")
 def dashboard():
+    if not session.get('is_authenticated'):
+        return redirect(url_for('register'))
     user_name = session.get('user_name', 'User')
-    remainders = Remainder.query.order_by(Remainder.date.asc()).all()
+    # Get number of subjects and staff list from DB
     subjects = SubjectName.query.all()
     num_subjects = len(subjects)
     staff_list = sorted(set(s.staffname for s in subjects))
-    upcoming_exams = Exam.query.filter(Exam.date >= datetime.now().date()).order_by(Exam.date.asc()).all()
-    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list, user_name=user_name, remainders=remainders, upcoming_exams=upcoming_exams)
+    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list, user_name=user_name)
 
 @app.route('/add_history', methods=['POST'])
 def add_subjecthistory():
@@ -226,6 +226,7 @@ def add_subjecthistory():
         user_tz = pytz.timezone('Asia/Kolkata')
         send_time = user_tz.localize(remainder_datetime)
         now = datetime.now(user_tz)
+        phone_number = "917200077663"
 
         # Get user's email from session
         user_email = session.get('email')
@@ -249,8 +250,16 @@ def add_subjecthistory():
                     id=f"email_history_{new_history.id}",
                     replace_existing=True
                 )
+                scheduler.add_job(
+                    lambda: send_whatsapp_reminder(f"{subname}: {remarks}", phone_number),
+                    'date',
+                    run_date=send_time,
+                    id=f"whatsapp_history_{new_history.id}",
+                    replace_existing=True
+                )
             else:
                 send_email_reminder(user_email, email_subject, email_message)
+                send_whatsapp_reminder(f"{subname}: {remarks}", phone_number)
 
         return redirect(url_for('view_subject_details', subject_name=subname))
 
@@ -260,9 +269,16 @@ def add_subject():
         # Get form data
         subname = request.form['subname']
         staffname = request.form['staffname']
+        examdate = request.form['examdate']
         note = request.form['note']
-        # Use today's date as a default for examdate
-        examdate = datetime.now().date()
+        
+        # Convert examdate from string to a date object
+        try:
+            examdate = datetime.strptime(examdate, "%Y-%m-%d").date()
+        except ValueError:
+            flash('Invalid date format. Please use YYYY-MM-DD.', 'danger')
+            return redirect(url_for('add_subject_form'))  # Redirect back to the form
+        
         # Create a new SubjectName object
         subject = SubjectName(
             namesub=subname,
@@ -812,12 +828,11 @@ def download_all_pdfs():
 @app.route('/add_remainder', methods=['POST'])
 def add_remainder():
     if request.method == 'POST':
+        user_email = request.form.get('user_email')
         content = request.form['content']
         date_str = request.form['date']
         time_str = request.form['time']
         link = request.form.get('link', None)
-        user_email = request.form.get('email') or session.get('user_email')
-        reminder_offset = int(request.form.get('reminder_offset', 20))  # Default 20 mins
         try:
             date = datetime.strptime(date_str, '%Y-%m-%d').date()
             time = datetime.strptime(time_str, '%H:%M').time()
@@ -829,21 +844,22 @@ def add_remainder():
         db.session.commit()
         flash('Remainder added successfully!', 'success')
 
-        # Schedule both WhatsApp and Email reminders with user-selected offset
+        # Schedule both WhatsApp and Email reminders 20 minutes before
         user_tz = pytz.timezone('Asia/Kolkata')
-        send_time = user_tz.localize(datetime.combine(date, time)) - timedelta(minutes=reminder_offset)
+        send_time = user_tz.localize(datetime.combine(date, time)) - timedelta(minutes=20)
         now = datetime.now(user_tz)
         phone_number = "917200077663"  # Set your recipient phone number here
-        email_subject = f"Reminder: {content}"
-        email_message = f"""
-        Reminder Details:
-        Content: {content}
-        Date: {date_str}
-        Time: {time_str}
-        """
-        if link:
-            email_message += f"\nRelated Link: {link}"
         if user_email:
+            # Prepare email content
+            email_subject = f"Reminder: {content}"
+            email_message = f"""
+            Reminder Details:
+            Content: {content}
+            Date: {date_str}
+            Time: {time_str}
+            """
+            if link:
+                email_message += f"\nRelated Link: {link}"
             if send_time > now:
                 # Schedule email reminder
                 scheduler.add_job(
@@ -854,10 +870,18 @@ def add_remainder():
                     id=f"email_reminder_{remainder.id}",
                     replace_existing=True
                 )
+                # Schedule WhatsApp reminder
+                scheduler.add_job(
+                    lambda: send_whatsapp_reminder(content, phone_number),
+                    'date',
+                    run_date=send_time,
+                    id=f"whatsapp_reminder_{remainder.id}",
+                    replace_existing=True
+                )
             else:
+                # Send immediately if time has passed
                 send_email_reminder(user_email, email_subject, email_message)
-        else:
-            flash('No email provided for reminder.', 'danger')
+                send_whatsapp_reminder(content, phone_number)
         return redirect(url_for('dashboard'))
 
 @app.route('/view_remainders')
@@ -866,7 +890,20 @@ def view_remainders():
     remainders = Remainder.query.order_by(Remainder.date.asc()).all()
     return render_template('remainders.html', remainders=remainders, current_date=date.today())
 
-
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        code = str(random.randint(1000, 9999))
+        session['pending_email'] = email
+        session['pending_name'] = name
+        session['pending_code'] = code
+        # Send code to email
+        send_email_reminder(email, 'Your Login Code', f'Your verification code is: {code}')
+        flash('A 4-digit code has been sent to your email. Please enter it below.')
+        return redirect(url_for('verify_code'))
+    return render_template('register.html')
 
 @app.route('/verify_code', methods=['GET', 'POST'])
 def verify_code():
@@ -902,39 +939,21 @@ def logout():
     session.clear()
     return redirect(url_for('login_code'))
 
-@app.route('/add_exam', methods=['POST'])
-def add_exam():
-    if request.method == 'POST':
-        subject = request.form['subject']
-        exam_type = request.form['exam_type']
-        # Exam date removed from form and backend
-        time_str = request.form['time']
-        try:
-            # Use today's date as default since date is removed
-            exam_date = datetime.now().date()
-            exam_time = datetime.strptime(time_str, "%H:%M").time()
-        except ValueError:
-            flash('Invalid time format.', 'danger')
-            return redirect(url_for('dashboard'))
-        new_exam = Exam(subject=subject, exam_type=exam_type, date=exam_date, time=exam_time)
-        try:
-            db.session.add(new_exam)
-            db.session.commit()
-            flash('Exam added successfully!', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Error adding exam: {str(e)}', 'danger')
-        return redirect(url_for('dashboard'))
-
-@app.route('/rename_profile', methods=['POST'])
-def rename_profile():
-    data = request.get_json()
-    new_name = data.get('newProfileName', '').strip()
-    if not new_name:
-        return jsonify({'success': False, 'message': 'No new name provided.'}), 400
-    # Remove login check, just update session and return success
-    session['user_name'] = new_name
-    return jsonify({'success': True, 'message': 'Profile name updated.'})
+@app.before_request
+def require_login():
+    allowed_routes = ['register', 'verify_code', 'login_code', 'static']
+    if request.endpoint not in allowed_routes:
+        if not session.get('is_authenticated'):
+            # If user has already registered, only ask for code
+            if session.get('user_email') and session.get('user_name'):
+                # Generate and send new code
+                code = str(random.randint(1000, 9999))
+                session['last_code'] = code
+                send_email_reminder(session['user_email'], 'Your Login Code', f'Your login code is: {code}')
+                flash('Please enter the code sent to your email.')
+                return redirect(url_for('login_code'))
+            else:
+                return redirect(url_for('register'))
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -260,9 +260,16 @@ def add_subject():
         # Get form data
         subname = request.form['subname']
         staffname = request.form['staffname']
+        examdate = request.form['examdate']
         note = request.form['note']
-        # Use today's date as a default for examdate
-        examdate = datetime.now().date()
+        
+        # Convert examdate from string to a date object
+        try:
+            examdate = datetime.strptime(examdate, "%Y-%m-%d").date()
+        except ValueError:
+            flash('Invalid date format. Please use YYYY-MM-DD.', 'danger')
+            return redirect(url_for('add_subject_form'))  # Redirect back to the form
+        
         # Create a new SubjectName object
         subject = SubjectName(
             namesub=subname,
@@ -907,14 +914,14 @@ def add_exam():
     if request.method == 'POST':
         subject = request.form['subject']
         exam_type = request.form['exam_type']
-        # Exam date removed from form and backend
+        date_str = request.form['date']
         time_str = request.form['time']
+        # Remove any reference to email from here
         try:
-            # Use today's date as default since date is removed
-            exam_date = datetime.now().date()
+            exam_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             exam_time = datetime.strptime(time_str, "%H:%M").time()
         except ValueError:
-            flash('Invalid time format.', 'danger')
+            flash('Invalid date or time format.', 'danger')
             return redirect(url_for('dashboard'))
         new_exam = Exam(subject=subject, exam_type=exam_type, date=exam_date, time=exam_time)
         try:

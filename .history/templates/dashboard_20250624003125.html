@@ -459,10 +459,8 @@
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
                         <li><h6 class="dropdown-header">Signed in as <strong>{{ user_name }}</strong></h6></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#renameProfileModal"><i class="fas fa-user-edit me-2"></i> Rename Profile</a></li>
+                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#renameProfileModal"><i class="fas fa-edit me-2"></i> Rename Profile</a></li>
                         <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i> Settings</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
                     </ul>
                 </div>
             </div>
@@ -597,6 +595,10 @@
                             <div class="mb-3">
                                 <label class="form-label">Exam Type</label>
                                 <input type="text" name="exam_type" class="form-control" placeholder="e.g. Midterm, Final" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Exam Date</label>
+                                <input type="date" name="date" class="form-control" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Exam Time</label>
@@ -803,10 +805,12 @@
         }
 
         // Handle profile rename form submission
-        document.getElementById('renameProfileForm').addEventListener('submit', function(e) {
+        document.getElementById('renameProfileForm')?.addEventListener('submit', function(e) {
             e.preventDefault();
             const newName = document.getElementById('newProfileName').value.trim();
-            if (newName) {
+            
+            if (newName && newName !== '{{ user_name }}') {
+                // In a real application, you would send this to your backend
                 fetch('/rename_profile', {
                     method: 'POST',
                     headers: {
@@ -817,6 +821,7 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
+                        // Update the profile circle and name display
                         document.querySelector('.profile-circle').textContent = newName[0].toUpperCase();
                         document.querySelector('.dropdown-header strong').textContent = newName;
                         showNotification('Profile name updated successfully!');

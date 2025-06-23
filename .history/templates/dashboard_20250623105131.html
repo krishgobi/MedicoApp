@@ -391,12 +391,6 @@
             border-color: var(--primary);
         }
 
-        /* Enhance Upcoming Exams card scroll */
-        .dashboard-card .list-group {
-            max-height: 180px;
-            overflow-y: auto;
-        }
-
         /* Responsive */
         @media (max-width: 992px) {
             .sidebar {
@@ -459,7 +453,7 @@
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
                         <li><h6 class="dropdown-header">Signed in as <strong>{{ user_name }}</strong></h6></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#renameProfileModal"><i class="fas fa-user-edit me-2"></i> Rename Profile</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i> Profile</a></li>
                         <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i> Settings</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
@@ -564,6 +558,10 @@
                                 <input type="text" class="form-control" id="staffname" name="staffname" placeholder="Enter staff name" required>
                             </div>
                             <div class="mb-3">
+                                <label for="examdate" class="form-label">Exam Date</label>
+                                <input type="date" class="form-control" id="examdate" name="examdate" required>
+                            </div>
+                            <div class="mb-3">
                                 <label for="note" class="form-label">Notes</label>
                                 <input type="text" class="form-control" id="note" name="note" placeholder="Enter your notes" required>
                             </div>
@@ -581,22 +579,23 @@
         <div class="modal fade" id="addExamReminderModal" tabindex="-1" aria-labelledby="addExamReminderModalLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
-                    <div class="modal-header d-flex justify-content-between align-items-center">
+                    <div class="modal-header">
                         <h5 class="modal-title" id="addExamReminderModalLabel">Add Exam Reminder</h5>
-                        <div>
-                            <a href="/dashboard" class="btn btn-outline-primary btn-sm me-2">Home</a>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <form action="/add_exam" method="POST" enctype="multipart/form-data">
+                        <form action="/add_remainder" method="POST">
                             <div class="mb-3">
                                 <label class="form-label">Subject Name</label>
-                                <input type="text" name="subject" class="form-control" placeholder="Subject Name" required>
+                                <input type="text" name="content" class="form-control" placeholder="Subject Name" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Exam Type</label>
                                 <input type="text" name="exam_type" class="form-control" placeholder="e.g. Midterm, Final" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Exam Date</label>
+                                <input type="date" name="date" class="form-control" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Exam Time</label>
@@ -604,47 +603,19 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Remind me before</label>
-                                <select name="reminder_offset" class="form-control" id="exam-reminder-offset-select" onchange="toggleExamCustomOffset()">
+                                <select name="reminder_offset" class="form-control">
                                     <option value="20">20 minutes</option>
                                     <option value="10">10 minutes</option>
-                                    <option value="custom">Custom...</option>
+                                    <option value="60">1 hour</option>
                                 </select>
-                                <div id="exam-custom-offset-container" style="display:none; margin-top:0.5rem;">
-                                    <label class="form-label">Custom Offset (minutes before)</label>
-                                    <input type="number" min="1" max="1440" step="1" name="custom_reminder_offset" class="form-control" placeholder="Enter minutes (e.g. 30, 60, 120)" />
-                                </div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Attachment (Optional)</label>
-                                <input type="file" name="file" class="form-control">
+                                <label class="form-label">Your Email</label>
+                                <input type="email" name="email" class="form-control" placeholder="your@email.com" required>
                             </div>
                             <div class="d-flex justify-content-end">
                                 <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-primary">Add Exam</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Rename Profile Modal -->
-        <div class="modal fade" id="renameProfileModal" tabindex="-1" aria-labelledby="renameProfileModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="renameProfileModalLabel">Rename Profile</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="renameProfileForm">
-                            <div class="mb-3">
-                                <label for="newProfileName" class="form-label">New Profile Name</label>
-                                <input type="text" class="form-control" id="newProfileName" name="newProfileName" value="{{ user_name }}" required>
-                            </div>
-                            <div class="d-flex justify-content-end">
-                                <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                                <button type="submit" class="btn btn-primary">Add Reminder</button>
                             </div>
                         </form>
                     </div>
@@ -790,48 +761,6 @@
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-
-        function toggleExamCustomOffset() {
-            var select = document.getElementById('exam-reminder-offset-select');
-            var custom = document.getElementById('exam-custom-offset-container');
-            if (select.value === 'custom') {
-                custom.style.display = 'block';
-            } else {
-                custom.style.display = 'none';
-            }
-        }
-
-        // Handle profile rename form submission
-        document.getElementById('renameProfileForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const newName = document.getElementById('newProfileName').value.trim();
-            if (newName) {
-                fetch('/rename_profile', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ newProfileName: newName }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.querySelector('.profile-circle').textContent = newName[0].toUpperCase();
-                        document.querySelector('.dropdown-header strong').textContent = newName;
-                        showNotification('Profile name updated successfully!');
-                        bootstrap.Modal.getInstance(document.getElementById('renameProfileModal')).hide();
-                    } else {
-                        showNotification('Error updating profile name: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    showNotification('Error updating profile name');
-                    console.error('Error:', error);
-                });
-            } else {
-                showNotification('Please enter a new name');
-            }
         });
     </script>
 </body>
