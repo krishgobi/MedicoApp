@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subject History Details</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary: #6d28d9;
+            --primary-light: #8b5cf6;
+            --primary-dark: #4c1d95;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1e293b;
+            --light: #ffffff;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+            --transition-speed: 0.3s;
+            --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+            line-height: 1.6;
+        }
+
+        /* Main Container */
+        .main-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            animation: fadeIn 0.6s var(--transition-easing);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Page Header */
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+            padding-bottom: 1rem;
+        }
+
+        .page-header h1 {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 2.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .page-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 2px;
+        }
+
+        /* History List */
+        .history-list {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* History Card */
+        .history-card {
+            background-color: var(--light);
+            border-radius: 0.75rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            border-left: 4px solid var(--primary);
+            transition: all var(--transition-speed) var(--transition-easing);
+            animation: fadeInUp 0.5s var(--transition-easing);
+            animation-fill-mode: both;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .history-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.12);
+        }
+
+        /* Staggered animations for cards */
+        .history-card:nth-child(1) { animation-delay: 0.1s; }
+        .history-card:nth-child(2) { animation-delay: 0.2s; }
+        .history-card:nth-child(3) { animation-delay: 0.3s; }
+        .history-card:nth-child(n+4) { animation-delay: 0.4s; }
+
+        /* Card Content */
+        .card-field {
+            margin-bottom: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .card-field strong {
+            color: var(--primary-dark);
+            font-weight: 600;
+            min-width: 160px;
+            margin-right: 1rem;
+        }
+
+        .card-field p {
+            margin: 0;
+            color: var(--dark);
+            flex: 1;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .action-btn {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all var(--transition-speed) var(--transition-easing);
+            border: none;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .share-btn {
+            background-color: var(--primary);
+        }
+
+        .share-btn:hover {
+            background-color: var(--primary-light);
+        }
+
+        .download-btn {
+            background-color: var(--secondary);
+        }
+
+        .download-btn:hover {
+            background-color: #34d399;
+        }
+
+        /* Extra Fields Section */
+        .extra-fields {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px dashed var(--light-gray);
+        }
+
+        .extra-fields strong {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            background-color: rgba(241, 245, 249, 0.5);
+            border-radius: 0.75rem;
+            color: var(--gray);
+            font-size: 1.1rem;
+            animation: fadeIn 0.6s var(--transition-easing);
+        }
+
+        /* Ripple Effect */
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.4);
+            transform: scale(0);
+            animation: ripple var(--transition-speed) linear;
+            pointer-events: none;
+        }
+
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main-container {
+                margin: 1rem auto;
+            }
+            
+            .page-header h1 {
+                font-size: 1.75rem;
+            }
+            
+            .history-card {
+                padding: 1.5rem;
+            }
+            
+            .card-field strong {
+                min-width: 120px;
+                margin-bottom: 0.25rem;
+            }
+            
+            .action-buttons {
+                top: 1rem;
+                right: 1rem;
+            }
+            
+            .action-btn {
+                width: 2.2rem;
+                height: 2.2rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .page-header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .history-card {
+                padding: 1.25rem;
+            }
+            
+            .card-field strong {
+                min-width: 100%;
+                margin-bottom: 0.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="page-header">
+            <h1>Subject History Details</h1>
+            <p class="text-muted">View and manage your subject history records</p>
+        </div>
+
+        {% if subjects %}
+            <ul class="history-list">
+                {% for entry in subjects %}
+                    <li class="history-card">
+                        <div class="action-buttons">
+                            <button class="action-btn download-btn" title="Download" 
+                                onclick="downloadAsText(`Subject Name: {{ entry.namesub }}\nPosting Name: {{ entry.posting_name }}\nPatient Name: {{ entry.patient_name }}\nDisease Details: {{ entry.disease_detail }}\nRemarks: {{ entry.remarks }}\nDate: {{ entry.date }}\nDuration: {{ entry.duration_date }}\nRemainder Date: {{ entry.remainder_date }}\nRemainder Time: {{ entry.remainder_time }}{% if entry.extra_fields %}\nExtra Fields: {{ entry.extra_fields }}{% endif %}`, '{{ entry.namesub }}-history.txt')">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="action-btn share-btn" title="Share" 
+                                onclick="shareCard(`Subject Name: {{ entry.namesub }}\nPosting Name: {{ entry.posting_name }}\nPatient Name: {{ entry.patient_name }}\nDisease Details: {{ entry.disease_detail }}\nRemarks: {{ entry.remarks }}\nDate: {{ entry.date }}\nDuration: {{ entry.duration_date }}\nRemainder Date: {{ entry.remainder_date }}\nRemainder Time: {{ entry.remainder_time }}{% if entry.extra_fields %}\nExtra Fields: {{ entry.extra_fields }}{% endif %}`)">
+                                <i class="fas fa-share-alt"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="card-field">
+                            <strong>Subject Name:</strong>
+                            <p>{{ entry.namesub }}</p>
+                        </div>
+                        
+                        <div class="card-field">
+                            <strong>Posting Name:</strong>
+                            <p>{{ entry.posting_name }}</p>
+                        </div>
+                        
+                        <div class="card-field">
+                            <strong>Patient Name:</strong>
+                            <p>{{ entry.patient_name }}</p>
+                        </div>
+                        
+                        <div class="card-field">
+                            <strong>Disease Details:</strong>
+                            <p>{{ entry.disease_detail }}</p>
+                        </div>
+                        
+                        <div class="card-field">
+                            <strong>Remarks:</strong>
+                            <p>{{ entry.remarks }}</p>
+                        </div>
+                        
+                        <div class="card-field">
+                            <strong>Date:</strong>
+                            <p>{{ entry.date }}</p>
+                        </div>
+                        
+                        <div class="card-field">
+                            <strong>Duration:</strong>
+                            <p>{{ entry.duration_date }}</p>
+                        </div>
+                        
+                        <div class="card-field">
+                            <strong>Remainder Date:</strong>
+                            <p>{{ entry.remainder_date }}</p>
+                        </div>
+                        
+                        <div class="card-field">
+                            <strong>Remainder Time:</strong>
+                            <p>{{ entry.remainder_time }}</p>
+                        </div>
+                        
+                        {% if entry.extra_fields %}
+                            <div class="extra-fields">
+                                <div class="card-field">
+                                    <strong>Extra Fields:</strong>
+                                    <p>{{ entry.extra_fields }}</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox fa-3x mb-3" style="color: var(--primary-light);"></i>
+                <p>No history records found for this subject.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Add ripple effect to buttons
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.action-btn')) {
+                const btn = e.target.closest('.action-btn');
+                const rect = btn.getBoundingClientRect();
+                const ripple = document.createElement('span');
+                ripple.classList.add('ripple');
+                ripple.style.width = ripple.style.height = Math.max(rect.width, rect.height) + 'px';
+                ripple.style.left = e.clientX - rect.left - ripple.offsetWidth / 2 + 'px';
+                ripple.style.top = e.clientY - rect.top - ripple.offsetHeight / 2 + 'px';
+                btn.appendChild(ripple);
+
+                setTimeout(() => {
+                    ripple.remove();
+                }, 600);
+            }
+        });
+
+        // Share function
+        function shareCard(text) {
+            if (navigator.share) {
+                navigator.share({ 
+                    title: 'Subject History Details',
+                    text: text
+                }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(text);
+                alert('Details copied to clipboard!');
+            }
+        }
+
+        // Download as text file
+        function downloadAsText(text, filename) {
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || 'subject-history.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

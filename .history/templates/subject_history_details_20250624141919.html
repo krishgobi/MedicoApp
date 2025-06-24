@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subject History Details</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script>
+    function shareCard(text) {
+        if (navigator.share) {
+            navigator.share({ 
+                title: 'Subject History Details',
+                text: text
+            }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(text);
+            alert('Details copied to clipboard!');
+        }
+    }
+
+    function downloadAsText(text, filename) {
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'subject-history.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Subject History Details</h1>
+        {% if subjects %}
+            <ul>
+                {% for entry in subjects %}
+                    <li>
+                        <div class="action-buttons">
+                            <button class="action-btn download-btn" title="Download" 
+                                onclick="downloadAsText(`Subject Name: {{ entry.namesub }}\nPosting Name: {{ entry.posting_name }}\nPatient Name: {{ entry.patient_name }}\nDisease Details: {{ entry.disease_detail }}\nRemarks: {{ entry.remarks }}\nDate: {{ entry.date }}\nDuration: {{ entry.duration_date }}\nRemainder Date: {{ entry.remainder_date }}\nRemainder Time: {{ entry.remainder_time }}{% if entry.extra_fields %}\nExtra Fields: {{ entry.extra_fields }}{% endif %}`, '{{ entry.namesub }}-history.txt')">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="action-btn share-btn" title="Share" 
+                                onclick="shareCard(`Subject Name: {{ entry.namesub }}\nPosting Name: {{ entry.posting_name }}\nPatient Name: {{ entry.patient_name }}\nDisease Details: {{ entry.disease_detail }}\nRemarks: {{ entry.remarks }}\nDate: {{ entry.date }}\nDuration: {{ entry.duration_date }}\nRemainder Date: {{ entry.remainder_date }}\nRemainder Time: {{ entry.remainder_time }}{% if entry.extra_fields %}\nExtra Fields: {{ entry.extra_fields }}{% endif %}`)">
+                                <i class="fas fa-share-alt"></i>
+                            </button>
+                        </div>
+                        <p><strong>Subject Name:</strong> {{ entry.namesub }}</p>
+                        <p><strong>Posting Name:</strong> {{ entry.posting_name }}</p>
+                        <p><strong>Patient Name:</strong> {{ entry.patient_name }}</p>
+                        <p><strong>Disease Details:</strong> {{ entry.disease_detail }}</p>
+                        <p><strong>Remarks:</strong> {{ entry.remarks }}</p>
+                        <p><strong>Date:</strong> {{ entry.date }}</p>
+                        <p><strong>Duration:</strong> {{ entry.duration_date }}</p>
+                        <p><strong>Remainder Date:</strong> {{ entry.remainder_date }}</p>
+                        <p><strong>Remainder Time:</strong> {{ entry.remainder_time }}</p>
+                        {% if entry.extra_fields %}
+                            <div class="extra-fields">
+                                <strong>Extra Fields:</strong>
+                                <p>{{ entry.extra_fields }}</p>
+                            </div>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="no-history-message">No history records found for this subject.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

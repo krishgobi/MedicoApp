@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary: #4c1d95;
+            --primary-light: #6d28d9;
+            --secondary: #f0f2f5;
+            --dark: #1e1e2f;
+            --light: #ffffff;
+            --gray: #6c757d;
+            --success: #28a745;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background-color: var(--dark);
+            color: white;
+            height: 100vh;
+            position: fixed;
+            width: 250px;
+            padding: 1.5rem;
+            transition: all 0.3s;
+            z-index: 1000;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            color: white;
+        }
+
+        .sidebar-brand i {
+            margin-right: 0.75rem;
+            color: var(--primary-light);
+        }
+
+        .nav-item {
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            color: white;
+        }
+
+        .nav-link i {
+            margin-right: 0.75rem;
+            width: 1.25rem;
+            text-align: center;
+        }
+
+        .nav-link.active {
+            background-color: rgba(109, 40, 217, 0.2);
+            color: white;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 250px;
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+
+        /* Top Navigation */
+        .top-navbar {
+            background-color: white;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            padding: 0.75rem 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+        }
+
+        .profile-circle {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: 1rem;
+        }
+
+        .profile-circle:hover {
+            background-color: var(--primary-light);
+            transform: scale(1.05);
+        }
+
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+            border-radius: 0.5rem;
+        }
+
+        .dropdown-item {
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+        }
+
+        .dropdown-item:hover {
+            background-color: rgba(109, 40, 217, 0.1);
+            color: var(--primary);
+        }
+
+        /* Dashboard Cards */
+        .dashboard-card {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+            height: 100%;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            overflow: hidden;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.1);
+        }
+
+        .dashboard-card .card-icon {
+            font-size: 2rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .dashboard-card .card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .dashboard-card .card-label {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .dashboard-card .list-unstyled li,
+        .dashboard-card .list-group-item {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-light);
+            border-color: var(--primary-light);
+        }
+
+        /* Modal */
+        .modal-content {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            border-bottom: none;
+            padding: 1.5rem;
+        }
+
+        .modal-title {
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .form-control {
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #dee2e6;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 0.25rem rgba(109, 40, 217, 0.25);
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            z-index: 1100;
+            display: none;
+            min-width: 300px;
+            background-color: var(--success);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Chatbot */
+        #chatbot-toggle {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1050;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+        }
+
+        #chatbot-toggle:hover {
+            background-color: var(--primary-light);
+            transform: scale(1.1);
+        }
+
+        #chatbot-widget {
+            position: fixed;
+            bottom: 5rem;
+            right: 2rem;
+            width: 350px;
+            max-width: 90vw;
+            height: 500px;
+            max-height: 80vh;
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            z-index: 1050;
+            overflow: hidden;
+        }
+
+        #chatbot-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #chatbot-messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .chatbot-message {
+            margin-bottom: 1rem;
+            display: flex;
+        }
+
+        .chatbot-message.bot {
+            justify-content: flex-start;
+        }
+
+        .chatbot-message.user {
+            justify-content: flex-end;
+        }
+
+        .chat-bubble {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            word-wrap: break-word;
+        }
+
+        .chatbot-message.bot .chat-bubble {
+            background-color: #f1f0f0;
+            border-top-left-radius: 0;
+        }
+
+        .chatbot-message.user .chat-bubble {
+            background-color: var(--primary);
+            color: white;
+            border-top-right-radius: 0;
+        }
+
+        #chatbot-input-row {
+            padding: 1rem;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+        }
+
+        #chatbot-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            margin-right: 0.5rem;
+        }
+
+        #chatbot-send {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0 1.25rem;
+            cursor: pointer;
+        }
+
+        #chatbot-send:hover {
+            background-color: var(--primary-light);
+        }
+
+        #chatbot-suggestions {
+            padding: 0.75rem 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            border-top: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+        }
+
+        .suggestion-btn {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 1rem;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .suggestion-btn:hover {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Enhance Upcoming Exams card scroll */
+        .dashboard-card .list-group {
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        /* Add Exam Reminder Modal - Analog type for reminder */
+        .reminder-analog-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .reminder-analog-label {
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+        .reminder-analog-input {
+            width: 60px;
+            text-align: right;
+        }
+        .reminder-analog-unit {
+            margin-left: 0.25rem;
+            font-size: 1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+
+        /* Animation */
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Add Exam Reminder Modal - Only manual setup for reminder time */
+        /* Hide the select and show only manual input */
+        #exam-reminder-offset-select {
+            display: none;
+        }
+        #exam-custom-offset-container {
+            display: block !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <a href="#" class="sidebar-brand text-decoration-none">
+            <i class="fas fa-heartbeat"></i> MediTrack
+        </a>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a href="{{url_for('view_subject')}}" class="nav-link">
+                    <i class="fas fa-book-medical"></i> Subjects
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{url_for('remainder_dashboard')}}" class="nav-link">
+                    <i class="fas fa-folder"></i> Files
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{url_for('importants')}}" class="nav-link">
+                    <i class="fas fa-file-alt"></i> Documents
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{url_for('view_remainders')}}" class="nav-link">
+                    <i class="fas fa-bell"></i> Reminders
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{url_for('subject_history_page')}}" class="nav-link">
+                    <i class="fas"></i> History Records
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Navigation -->
+        <nav class="top-navbar mb-4">
+            <div></div> <!-- Empty div for spacing -->
+            <div class="user-profile">
+                <div class="dropdown">
+                    <div class="profile-circle dropdown-toggle" id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        {{ user_name[0]|upper }}
+                    </div>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
+                        <li><h6 class="dropdown-header">Signed in as <strong>{{ user_name }}</strong></h6></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#renameProfileModal"><i class="fas fa-user-edit me-2"></i> Rename Profile</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i> Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <script>
+                    {% for category, message in messages %}
+                        showNotification("{{ message }}");
+                    {% endfor %}
+                </script>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Dashboard Cards -->
+        <div class="row mb-4">
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="dashboard-card p-4 text-center">
+                    <div class="card-icon">
+                        <i class="fas fa-book-medical"></i>
+                    </div>
+                    <div class="card-value">{{ num_subjects }}</div>
+                    <div class="card-label">Subjects Added</div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="dashboard-card p-4">
+                    <div class="card-icon text-center">
+                        <i class="fas fa-user-md"></i>
+                    </div>
+                    <div class="card-label text-center mb-3">Staff List</div>
+                    <div style="max-height: 120px; overflow-y: auto;">
+                        <ul class="list-unstyled text-center mb-0">
+                            {% for staff in staff_list %}
+                                <li class="mb-2">{{ staff }}</li>
+                            {% else %}
+                                <li class="text-muted">No staff found</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="dashboard-card p-4 text-center position-relative d-flex flex-column" style="height: 100%;">
+                    <div class="card-icon">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="card-value">{{ upcoming_exams|length }}</div>
+                    <div class="card-label mb-2">Upcoming Exams</div>
+                    <button class="btn btn-sm btn-success position-absolute top-0 end-0 m-3" data-bs-toggle="modal" data-bs-target="#addExamReminderModal" title="Add Exam Reminder">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <div style="max-height: 120px; overflow-y: auto; margin-top: 1rem;">
+                        <ul class="list-group list-group-flush">
+                            {% for exam in upcoming_exams %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>
+                                    <strong>{{ exam.subject }}</strong> ({{ exam.exam_type }})<br>
+                                    <small>{{ exam.date }} {{ exam.time }}</small>
+                                </span>
+                                <span class="badge bg-primary">Upcoming</span>
+                            </li>
+                            {% else %}
+                            <li class="list-group-item text-muted">No upcoming exams</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row">
+            <div class="col-12 mb-4">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
+                    <i class="fas fa-plus me-2"></i> Add Subject
+                </button>
+            </div>
+        </div>
+
+        <!-- Add Subject Modal -->
+        <div class="modal fade" id="addSubjectModal" tabindex="-1" aria-labelledby="addSubjectModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addSubjectModalLabel">Add New Subject</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="subjectForm" action="/add_subject" method="POST">
+                            <div class="mb-3">
+                                <label for="subname" class="form-label">Subject Name</label>
+                                <input type="text" class="form-control" id="subname" name="subname" placeholder="Enter subject name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="staffname" class="form-label">Staff Name</label>
+                                <input type="text" class="form-control" id="staffname" name="staffname" placeholder="Enter staff name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="note" class="form-label">Notes</label>
+                                <input type="text" class="form-control" id="note" name="note" placeholder="Enter your notes" required>
+                            </div>
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Add Subject</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Exam Reminder Modal -->
+        <div class="modal fade" id="addExamReminderModal" tabindex="-1" aria-labelledby="addExamReminderModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header d-flex justify-content-between align-items-center">
+                        <h5 class="modal-title" id="addExamReminderModalLabel">Add Exam Reminder</h5>
+                        <div>
+                            <a href="/dashboard" class="btn btn-outline-primary btn-sm me-2">Home</a>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                    </div>
+                    <div class="modal-body">
+                        <form action="/add_exam" method="POST" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label class="form-label">Subject Name</label>
+                                <input type="text" name="subject" class="form-control" placeholder="Subject Name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Exam Type</label>
+                                <input type="text" name="exam_type" class="form-control" placeholder="e.g. Midterm, Final" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Exam Time</label>
+                                <input type="time" name="time" class="form-control" required>
+                            </div>
+                            <div class="mb-3 reminder-analog-container">
+                                <label class="reminder-analog-label">Remind me before:</label>
+                                <input type="number" min="0" max="23" step="1" name="reminder_hours" class="form-control reminder-analog-input" placeholder="0" value="0"> <span class="reminder-analog-unit">hours</span>
+                                <input type="number" min="1" max="59" step="1" name="reminder_minutes" class="form-control reminder-analog-input" placeholder="10" value="10"> <span class="reminder-analog-unit">minutes</span>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Attachment (Optional)</label>
+                                <input type="file" name="file" class="form-control">
+                            </div>
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Add Exam</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rename Profile Modal -->
+        <div class="modal fade" id="renameProfileModal" tabindex="-1" aria-labelledby="renameProfileModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="renameProfileModalLabel">Rename Profile</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="renameProfileForm">
+                            <div class="mb-3">
+                                <label for="newProfileName" class="form-label">New Profile Name</label>
+                                <input type="text" class="form-control" id="newProfileName" name="newProfileName" value="{{ user_name }}" required>
+                            </div>
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification -->
+        <div class="notification" id="notification"></div>
+    </div>
+
+    <!-- Chatbot Widget -->
+    <button id="chatbot-toggle" title="Ask MediBot Assistant">
+        <i class="fas fa-robot"></i>
+    </button>
+    <div id="chatbot-widget">
+        <div id="chatbot-header">
+            <div>
+                <i class="fas fa-robot me-2"></i>
+                <strong>MediBot Assistant</strong>
+            </div>
+            <button id="chatbot-close" style="background: none; border: none; color: white; font-size: 1.25rem;">&times;</button>
+        </div>
+        <div id="chatbot-messages">
+            <div class="chatbot-message bot">
+                <div class="chat-bubble">
+                    Hi! I'm your medical assistant. You can ask me about:
+                    <ul class="mt-2" style="padding-left: 1.25rem;">
+                        <li>Patient histories</li>
+                        <li>Subject information</li>
+                        <li>Staff details</li>
+                        <li>Upcoming reminders</li>
+                        <li>Medical records</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div id="chatbot-suggestions">
+            <button class="suggestion-btn" onclick="askBot('Show me all subjects')">
+                <i class="fas fa-book-medical me-1"></i> Subjects
+            </button>
+            <button class="suggestion-btn" onclick="askBot('List upcoming reminders')">
+                <i class="fas fa-bell me-1"></i> Reminders
+            </button>
+            <button class="suggestion-btn" onclick="askBot('Show recent patients')">
+                <i class="fas fa-user me-1"></i> Patients
+            </button>
+            <button class="suggestion-btn" onclick="askBot('List all staff')">
+                <i class="fas fa-user-md me-1"></i> Staff
+            </button>
+        </div>
+        <div id="chatbot-input-row">
+            <input id="chatbot-input" type="text" placeholder="Type your question..." />
+            <button id="chatbot-send">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Show notification
+        function showNotification(message) {
+            let notification = document.getElementById("notification");
+            notification.innerText = message;
+            notification.style.display = "block";
+            
+            setTimeout(() => {
+                notification.style.display = "none";
+            }, 3000);
+        }
+
+        // Chatbot functionality
+        const chatbotToggle = document.getElementById('chatbot-toggle');
+        const chatbotWidget = document.getElementById('chatbot-widget');
+        const chatbotClose = document.getElementById('chatbot-close');
+        const chatbotMessages = document.getElementById('chatbot-messages');
+        const chatbotInput = document.getElementById('chatbot-input');
+        const chatbotSend = document.getElementById('chatbot-send');
+
+        chatbotToggle.addEventListener('click', () => {
+            chatbotWidget.style.display = 'flex';
+        });
+
+        chatbotClose.addEventListener('click', () => {
+            chatbotWidget.style.display = 'none';
+        });
+
+        // Dynamic data from backend (Jinja2 to JS)
+        const subjects = {{ subjects|default([])|tojson|safe }};
+        const reminders = {{ remainders|default([])|tojson|safe }};
+        const staffList = {{ staff_list|default([])|tojson|safe }};
+        const patients = [];
+        const today = new Date("{{ current_date|default('now') }}");
+
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function addChatMessage(text, sender) {
+            const msg = document.createElement('div');
+            msg.className = `chatbot-message ${sender} fade-in`;
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble';
+            bubble.innerHTML = text;
+            msg.appendChild(bubble);
+            chatbotMessages.appendChild(msg);
+            chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+        }
+
+        function askBot(question) {
+            addChatMessage(question, 'user');
+            chatbotInput.value = '';
+            addChatMessage('<i class="fas fa-spinner fa-spin me-2"></i> Thinking...', 'bot');
+            setTimeout(() => {
+                chatbotMessages.removeChild(chatbotMessages.lastChild);
+                let response = "I'm sorry, I can't process that right now.";
+                const q = question.toLowerCase();
+                if (q.includes('date') || q.includes('today')) {
+                    response = `Today's date is <strong>${formatDate(today)}</strong>.`;
+                } else if (q.includes('subject')) {
+                    if (subjects && subjects.length > 0) {
+                        response = 'Here are your current subjects: <ul>' + subjects.map(s => `<li>${s.namesub} (Staff: ${s.staffname})</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No subjects found.';
+                    }
+                } else if (q.includes('reminder')) {
+                    if (reminders && reminders.length > 0) {
+                        response = 'Upcoming reminders:<ul>' + reminders.map(r => `<li>${r.content} on ${r.date} at ${r.time}</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No upcoming reminders.';
+                    }
+                } else if (q.includes('staff')) {
+                    if (staffList && staffList.length > 0) {
+                        response = 'Staff members:<ul>' + staffList.map(st => `<li>${st}</li>`).join('') + '</ul>';
+                    } else {
+                        response = 'No staff found.';
+                    }
+                }
+                addChatMessage(response, 'bot');
+            }, 1000);
+        }
+
+        function handleUserInput() {
+            const val = chatbotInput.value.trim();
+            if (!val) return;
+            
+            askBot(val);
+        }
+
+        chatbotSend.addEventListener('click', handleUserInput);
+        chatbotInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleUserInput();
+        });
+
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        function toggleExamCustomOffset() {
+            var select = document.getElementById('exam-reminder-offset-select');
+            var custom = document.getElementById('exam-custom-offset-container');
+            if (select.value === 'custom') {
+                custom.style.display = 'block';
+            } else {
+                custom.style.display = 'none';
+            }
+        }
+
+        // Handle profile rename form submission
+        document.getElementById('renameProfileForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newName = document.getElementById('newProfileName').value.trim();
+            if (newName) {
+                fetch('/rename_profile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ newProfileName: newName }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.querySelector('.profile-circle').textContent = newName[0].toUpperCase();
+                        document.querySelector('.dropdown-header strong').textContent = newName;
+                        showNotification('Profile name updated successfully!');
+                        bootstrap.Modal.getInstance(document.getElementById('renameProfileModal')).hide();
+                    } else {
+                        showNotification('Error updating profile name: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    showNotification('Error updating profile name');
+                    console.error('Error:', error);
+                });
+            } else {
+                showNotification('Please enter a new name');
+            }
+        });
+    </script>
+</body>
+</html>

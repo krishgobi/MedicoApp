@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Document Manager</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary: #6d28d9;
+            --primary-light: #8b5cf6;
+            --primary-dark: #4c1d95;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1e293b;
+            --light: #ffffff;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            height: 100vh;
+            background: linear-gradient(180deg, var(--primary-dark) 0%, var(--primary) 100%);
+            color: white;
+            position: fixed;
+            left: 0;
+            top: 0;
+            padding: 1.5rem 1rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 0 0.5rem;
+        }
+
+        .sidebar-header i {
+            font-size: 1.8rem;
+            margin-right: 0.75rem;
+            color: var(--primary-light);
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .nav-item {
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link {
+            color: rgba(255, 255, 255, 0.9);
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            text-decoration: none;
+        }
+
+        .nav-link:hover {
+            color: white;
+        }
+
+        .nav-link i {
+            margin-right: 0.75rem;
+            width: 1.25rem;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 280px;
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+
+        /* Header */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--light-gray);
+        }
+
+        .page-title {
+            font-weight: 700;
+            color: var(--primary);
+            margin: 0;
+            font-size: 1.8rem;
+        }
+
+        /* Subject Cards */
+        .subjects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .subject-card {
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            transition: all 0.3s;
+            border-left: 4px solid var(--primary);
+        }
+
+        .subject-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.1);
+            border-left-color: var(--primary-light);
+        }
+
+        .subject-name {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+        }
+
+        .subject-meta {
+            color: var(--gray);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .subject-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        /* Buttons */
+        .btn {
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-light);
+            border-color: var(--primary-light);
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background-color: #dc2626;
+            border-color: #dc2626;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background-color: var(--secondary);
+            border-color: var(--secondary);
+        }
+
+        .btn-success:hover {
+            background-color: #34d399;
+            border-color: #34d399;
+            transform: translateY(-2px);
+        }
+
+        /* Modals */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(20px);
+            transition: all 0.3s;
+        }
+
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--light-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-weight: 600;
+            color: var(--primary);
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--gray);
+            transition: color 0.2s;
+        }
+
+        .modal-close:hover {
+            color: var(--dark);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--light-gray);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 0.25rem rgba(109, 40, 217, 0.25);
+            outline: none;
+        }
+
+        /* File Items */
+        .file-item {
+            background-color: var(--light-gray);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+
+        .file-item:hover {
+            background-color: #e9ecef;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            color: var(--primary-light);
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .empty-state h3 {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .menu-toggle {
+                display: block !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .subjects-grid {
+                grid-template-columns: 1fr;
+            }
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+        }
+
+        /* Menu Toggle Button */
+        .menu-toggle {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1100;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            width: 3rem;
+            height: 3rem;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.2);
+        }
+
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <!-- Menu Toggle Button (Mobile) -->
+    <button class="menu-toggle" id="menuToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-book-open"></i>
+            <h2>Smart Docs</h2>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="nav-item">
+                <a href="{{ url_for('dashboard') }}" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>Home</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('view_subject') }}" class="nav-link active">
+                    <i class="fas fa-folder"></i>
+                    <span>Documents</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="page-title">Important Subjects</h1>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" id="addSubjectBtn">
+                    <i class="fas fa-plus"></i> Add Subject
+                </button>
+                <button class="btn btn-danger" id="recycleBinBtn">
+                    <i class="fas fa-trash"></i> Recycle Bin
+                </button>
+            </div>
+        </div>
+
+        <!-- Subject List -->
+        <div id="subjectList">
+            <!-- Subject containers will be rendered here -->
+        </div>
+    </div>
+
+    <!-- Add Subject Modal -->
+    <div class="modal" id="addSubjectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Subject</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addSubjectForm">
+                    <div class="form-group">
+                        <label class="form-label">Subject Name</label>
+                        <input type="text" id="subjectName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Staff Name</label>
+                        <input type="text" id="staffName" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Create</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Upload Modal -->
+    <div class="modal" id="fileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="fileModalTitle">Upload File</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="fileForm">
+                    <div class="form-group">
+                        <label class="form-label">File Name</label>
+                        <input type="text" id="fileLabel" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select id="fileType" class="form-control">
+                            <option value="answers">Answers Only</option>
+                            <option value="qna">Q & Answers</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="qnaFields" style="display:none;">
+                        <label class="form-label">Upload Q & A Files (multiple allowed)</label>
+                        <input type="file" id="qnaFileInput" class="form-control" multiple>
+                        <small class="text-muted">or enter text below</small>
+                        <textarea id="qnaTextInput" class="form-control mt-2" rows="3" placeholder="Paste questions and/or answers here (optional)"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Upload File</label>
+                        <input type="file" id="fileInput" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100" id="fileSaveBtn">Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes Modal -->
+    <div class="modal" id="notesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Notes</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="notesContent">
+                <!-- Notes will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Files Modal -->
+    <div class="modal" id="openFilesModal">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-folder-open"></i> Files</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="openFilesContent"></div>
+        </div>
+    </div>
+
+    <!-- Recycle Bin Modal -->
+    <div class="modal" id="recycleBinModal">
+        <div class="modal-content" style="max-width:800px;">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-trash"></i> Recycle Bin</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="recycleBinContent"></div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Your existing JavaScript code remains the same -->
+    <script>
+    // Data
+    let subjects = JSON.parse(localStorage.getItem('importantSubjects')) || [];
+    let filesData = JSON.parse(localStorage.getItem('importantFilesData')) || {};
+    let recycleBin = JSON.parse(localStorage.getItem('recycleBin')) || [];
+    let currentSubject = '';
+
+    // DOM
+    const addSubjectBtn = document.getElementById('addSubjectBtn');
+    const recycleBinBtn = document.getElementById('recycleBinBtn');
+    const addSubjectModal = document.getElementById('addSubjectModal');
+    const fileModal = document.getElementById('fileModal');
+    const notesModal = document.getElementById('notesModal');
+    const openFilesModal = document.getElementById('openFilesModal');
+    const recycleBinModal = document.getElementById('recycleBinModal');
+    const subjectList = document.getElementById('subjectList');
+    const modalCloseButtons = document.querySelectorAll('.modal-close');
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+
+    // Menu toggle
+    menuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+    });
+
+    // Modal logic
+    addSubjectBtn.onclick = () => addSubjectModal.classList.add('active');
+    recycleBinBtn.onclick = () => {
+        renderRecycleBin();
+        recycleBinModal.classList.add('active');
+    };
+    
+    modalCloseButtons.forEach(btn => btn.onclick = () => {
+        addSubjectModal.classList.remove('active');
+        fileModal.classList.remove('active');
+        notesModal.classList.remove('active');
+        openFilesModal.classList.remove('active');
+        recycleBinModal.classList.remove('active');
+    });
+    
+    window.onclick = e => {
+        if (e.target === addSubjectModal) addSubjectModal.classList.remove('active');
+        if (e.target === fileModal) fileModal.classList.remove('active');
+        if (e.target === notesModal) notesModal.classList.remove('active');
+        if (e.target === openFilesModal) openFilesModal.classList.remove('active');
+        if (e.target === recycleBinModal) recycleBinModal.classList.remove('active');
+    };
+
+    // Add subject
+    document.getElementById('addSubjectForm').onsubmit = function(e) {
+        e.preventDefault();
+        const name = document.getElementById('subjectName').value.trim();
+        const staff = document.getElementById('staffName').value.trim();
+        if (!name || !staff) return;
+        if (subjects.some(s => s.name === name)) return alert('Subject already exists!');
+        subjects.push({ name, staff });
+        filesData[name] = [];
+        save();
+        renderSubjects();
+        addSubjectModal.classList.remove('active');
+        this.reset();
+    };
+
+    // Render subjects
+    function renderSubjects() {
+        if (!subjects.length) {
+            subjectList.innerHTML = `<div class='empty-state'><i class='fas fa-folder-open'></i><h3>No Subjects Yet</h3><p>Click Add Subject to create one.</p></div>`;
+            return;
+        }
+        subjectList.innerHTML = `<div class='subjects-grid'>${subjects.map(s => `
+            <div class='subject-card fade-in'>
+                <div class='subject-name'>${s.name}</div>
+                <div class='subject-meta'><span>Staff: ${s.staff}</span></div>
+                <div class='subject-actions'>
+                    <button class='btn btn-primary btn-sm' onclick="openFileModal('${s.name}')"><i class='fas fa-file'></i> File</button>
+                    <button class='btn btn-primary btn-sm' onclick="openNotesModal('${s.name}')"><i class='fas fa-sticky-note'></i> Notes</button>
+                    <button class='btn btn-primary btn-sm' onclick="openFilesList('${s.name}')"><i class='fas fa-folder-open'></i> Open</button>
+                    <button class='btn btn-danger btn-sm' onclick="deleteSubject('${s.name}')"><i class='fas fa-trash-alt'></i> Delete</button>
+                </div>
+            </div>
+        `).join('')}</div>`;
+    }
+
+    // File modal logic
+    window.openFileModal = function(subject) {
+        currentSubject = subject;
+        document.getElementById('fileLabel').value = '';
+        document.getElementById('fileType').value = 'answers';
+        document.getElementById('qnaFields').style.display = 'none';
+        document.getElementById('fileInput').value = '';
+        fileModal.classList.add('active');
+    };
+    
+    document.getElementById('fileType').onchange = function() {
+        const isQna = this.value === 'qna';
+        document.getElementById('qnaFields').style.display = isQna ? '' : 'none';
+        const fileInputGroup = document.getElementById('fileInput').parentElement;
+        fileInputGroup.style.display = isQna ? 'none' : '';
+        document.getElementById('fileInput').required = !isQna;
+    };
+    
+    document.getElementById('fileForm').onsubmit = function(e) {
+        e.preventDefault();
+        fileSaveBtn.disabled = true;
+        const label = document.getElementById('fileLabel').value.trim();
+        const type = document.getElementById('fileType').value;
+        const fileInput = document.getElementById('fileInput');
+        if (type === 'qna') {
+            let qnaFiles = Array.from(document.getElementById('qnaFileInput').files);
+            let qnaText = document.getElementById('qnaTextInput').value.trim();
+            if (!label || (!qnaFiles.length && !qnaText)) { fileSaveBtn.disabled = false; return; }
+            let entry = { label, type, qnaFiles: [], qnaText, date: new Date().toISOString() };
+            let fileReaders = qnaFiles.map(f => {
+                return new Promise(res => {
+                    let r = new FileReader();
+                    r.onload = ev => res({ name: f.name, data: ev.target.result });
+                    r.readAsDataURL(f);
+                });
+            });
+            Promise.all(fileReaders).then(qnaArr => {
+                entry.qnaFiles = qnaArr;
+                filesData[currentSubject].push(entry);
+                save();
+                fileModal.classList.remove('active');
+                document.getElementById('qnaFileInput').value = '';
+                document.getElementById('qnaTextInput').value = '';
+                document.getElementById('fileLabel').value = '';
+                document.getElementById('fileType').value = 'answers';
+                document.getElementById('qnaFields').style.display = 'none';
+                fileInput.parentElement.style.display = '';
+                fileInput.value = '';
+                fileSaveBtn.disabled = false;
+                renderSubjects();
+            });
+            return;
+        }
+        if (!label || !fileInput.files[0]) { fileSaveBtn.disabled = false; return; }
+        let file = fileInput.files[0];
+        let entry = { label, type, name: file.name, size: file.size, date: new Date().toISOString() };
+        let mainReader = new FileReader();
+        mainReader.onload = function(ev) {
+            entry.data = ev.target.result;
+            filesData[currentSubject].push(entry);
+            save();
+            fileModal.classList.remove('active');
+            document.getElementById('qnaFileInput').value = '';
+            document.getElementById('qnaTextInput').value = '';
+            document.getElementById('fileLabel').value = '';
+            document.getElementById('fileType').value = 'answers';
+            document.getElementById('qnaFields').style.display = 'none';
+            fileInput.parentElement.style.display = '';
+            fileInput.value = '';
+            fileSaveBtn.disabled = false;
+            renderSubjects();
+        };
+        mainReader.readAsDataURL(file);
+    };
+
+    // Notes modal
+    window.openNotesModal = function(subject) {
+        let files = filesData[subject] || [];
+        let html = files.length ? files.map((f, fileIdx) => {
+            if (f.type === 'qna') {
+                let qnaList = (f.qnaFiles||[]).map(qf => `<div><b>File:</b> <a href='#' onclick="downloadQnaFile('${subject}',${fileIdx},'${qf.name}');return false;">${qf.name}</a></div>`).join('');
+                let qnaText = f.qnaText ? `<div><b>Text:</b> ${f.qnaText}</div>` : '';
+                let mainRename = `<button class='btn btn-primary btn-sm' onclick="renameFilePrompt('${subject}',${fileIdx})"><i class='fas fa-edit'></i> Rename Main</button>`;
+                return `<div class='file-item'><span>${f.label} (${f.name})</span> ${mainRename}<div>${qnaList}${qnaText}</div></div>`;
+            } else {
+                let mainRename = `<button class='btn btn-primary btn-sm' onclick="renameFilePrompt('${subject}',${fileIdx})"><i class='fas fa-edit'></i> Rename</button>`;
+                return `<div class='file-item'><span>${f.label} (${f.name})</span> ${mainRename}</div>`;
+            }
+        }).join('') : '<div class="empty-state">No notes/files yet.</div>';
+        document.getElementById('notesContent').innerHTML = html;
+        notesModal.classList.add('active');
+    };
+
+    // Open files list modal
+    window.openFilesList = function(subject) {
+        let files = filesData[subject] || [];
+        let html = files.length ? files.map((f,i) => {
+            let icon = f.type === 'qna' ? '<i class="fas fa-question-circle text-primary"></i>' : '<i class="fas fa-file-alt text-primary"></i>';
+            let renameBtn = `<button class='btn btn-primary btn-sm' onclick="renameFilePrompt('${subject}',${i})"><i class='fas fa-edit'></i></button>`;
+            let downloadBtn = `<button class='btn btn-success btn-sm' onclick="downloadFile('${subject}',${i})"><i class='fas fa-download'></i></button>`;
+            let deleteBtn = `<button class='btn btn-danger btn-sm' onclick="deleteFile('${subject}',${i})"><i class='fas fa-trash-alt'></i></button>`;
+            let qnaList = (f.qnaFiles||[]).map(qf => `<div style='margin-bottom:4px;'><b>File:</b> <a href='#' onclick="downloadQnaFile('${subject}',${i},'${qf.name}');return false;">${qf.name}</a></div>`).join('');
+            let qnaText = f.qnaText ? `<div style='margin-bottom:4px;'><b>Text:</b> ${f.qnaText}</div>` : '';
+            return `<div class='file-item' style='display:flex;align-items:flex-start;gap:0.7rem;padding:0.8rem 1rem;'><div style='font-size:1.5rem;margin-right:0.5rem;'>${icon}</div><div style='flex:1;'><div style='font-weight:600;font-size:1.05rem;color:var(--primary);margin-bottom:0.1rem;'>${f.label}</div>${qnaList}${qnaText}</div><div class='file-actions' style='flex-direction:column;gap:0.3rem;'>${downloadBtn}${renameBtn}${deleteBtn}</div></div>`;
+        }).join('') : '<div class="empty-state">No files yet.</div>';
+        document.getElementById('openFilesContent').innerHTML = html;
+        openFilesModal.classList.add('active');
+    };
+
+    // Download functions
+    window.downloadQnaFile = function(subject, fileIdx, name) {
+        let f = filesData[subject][fileIdx];
+        let qf = (f.qnaFiles||[]).find(q => q.name === name);
+        if (!qf) return alert('File not found!');
+        let a = document.createElement('a');
+        a.href = qf.data;
+        a.download = qf.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    window.downloadFile = function(subject, fileIdx) {
+        let f = filesData[subject][fileIdx];
+        if (!f) return alert('File not found!');
+        if (f.type === 'qna' && f.qnaFiles && f.qnaFiles.length) {
+            f.qnaFiles.forEach(qf => {
+                if (!qf.data) return;
+                const a = document.createElement('a');
+                a.href = qf.data;
+                a.download = qf.name || 'download';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            });
+            return;
+        }
+        if (f.data) {
+            try {
+                const a = document.createElement('a');
+                a.href = f.data;
+                a.download = f.name || f.label || 'download';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch (err) {
+                window.open(f.data, '_blank');
+            }
+        } else {
+            alert('No file data found!');
+        }
+    };
+
+    // Rename file prompts
+    window.renameFilePrompt = function(subject, idx) {
+        let f = filesData[subject][idx];
+        let newLabel = prompt('Enter new file label:', f.label);
+        if (newLabel && newLabel.trim() && newLabel !== f.label) {
+            f.label = newLabel.trim();
+            save();
+            window.openFilesList(subject);
+            window.openNotesModal(subject);
+        }
+    };
+
+    // Save to localStorage and update global recycleBin
+    function save() {
+        localStorage.setItem('importantSubjects', JSON.stringify(subjects));
+        localStorage.setItem('importantFilesData', JSON.stringify(filesData));
+        localStorage.setItem('recycleBin', JSON.stringify(recycleBin));
+    }
+
+    // Helper to sync recycleBin from localStorage
+    function syncRecycleBin() {
+        recycleBin = JSON.parse(localStorage.getItem('recycleBin')) || [];
+    }
+
+    // File and subject deletion
+    window.deleteFile = function(subject, fileIdx) {
+        if (!confirm('Are you sure you want to delete this file?')) return;
+        recycleBin.push({ type: 'file', subject, file: filesData[subject][fileIdx] });
+        filesData[subject].splice(fileIdx, 1);
+        save();
+        renderSubjects();
+        window.openFilesList(subject);
+    };
+
+    window.deleteSubject = function(subject) {
+        if (!confirm('Are you sure you want to delete this subject and all its files?')) return;
+        recycleBin.push({ type: 'subject', subject: subjects.find(s => s.name === subject), files: filesData[subject] });
+        subjects = subjects.filter(s => s.name !== subject);
+        delete filesData[subject];
+        save();
+        renderSubjects();
+    };
+
+    // Recycle Bin logic
+    function renderRecycleBin() {
+        syncRecycleBin();
+        let bin = recycleBin;
+        let html = bin.length ? bin.map((item, idx) => {
+            if (item.type === 'subject') {
+                return `<div class='file-item'><b>Subject:</b> ${item.subject.name} <button class='btn btn-success btn-sm' type='button' onclick='restoreSubject(${idx})'>Restore</button> <button class='btn btn-danger btn-sm' type='button' onclick='deleteFromBin(${idx})'>Delete</button></div>`;
+            } else {
+                return `<div class='file-item'><b>File:</b> ${item.file.label} (Subject: ${item.subject}) <button class='btn btn-success btn-sm' type='button' onclick='restoreFile(${idx})'>Restore</button> <button class='btn btn-danger btn-sm' type='button' onclick='deleteFromBin(${idx})'>Delete</button></div>`;
+            }
+        }).join('') : '<div class="empty-state">Recycle bin is empty.</div>';
+        document.getElementById('recycleBinContent').innerHTML = html;
+    }
+
+    window.restoreSubject = function(idx) {
+        syncRecycleBin();
+        let item = recycleBin[idx];
+        if (item && item.type === 'subject') {
+            subjects.push(item.subject);
+            filesData[item.subject.name] = item.files;
+            recycleBin.splice(idx,1);
+            save();
+            renderSubjects();
+            renderRecycleBin();
+        }
+    };
+
+    window.restoreFile = function(idx) {
+        syncRecycleBin();
+        let item = recycleBin[idx];
+        if (item && item.type === 'file') {
+            if (!filesData[item.subject]) filesData[item.subject] = [];
+            filesData[item.subject].push(item.file);
+            recycleBin.splice(idx,1);
+            save();
+            renderSubjects();
+            renderRecycleBin();
+        }
+    };
+
+    window.deleteFromBin = function(idx) {
+        syncRecycleBin();
+        recycleBin.splice(idx,1);
+        save();
+        renderRecycleBin();
+    };
+
+    // Initial render
+    renderSubjects();
+
+    // Warn user about localStorage clearing
+    if (!localStorage.getItem('importantWarned')) {
+        setTimeout(() => {
+            alert('Note: Your data is stored in your browser. If you clear browser data or use a different browser/device, your data will be lost. Use Export/Import to backup and restore.');
+            localStorage.setItem('importantWarned', '1');
+        }, 1000);
+    }
+    </script>
+</body>
+</html>
