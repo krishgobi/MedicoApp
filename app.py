@@ -1766,4 +1766,5 @@ MedicoApp Team
         return jsonify({"status": "error", "message": f"Email test failed: {str(e)}"})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # For local development
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

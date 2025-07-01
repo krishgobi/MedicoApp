@@ -18,6 +18,9 @@ requests==2.31.0
 # PDF Generation
 reportlab==4.0.4
 
+# Production WSGI Server
+gunicorn==21.2.0
+
 # Timezone handling
 pytz==2023.3
 
