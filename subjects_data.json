@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "namesub": "machine learning",
+    "note": "....",
+    "staffname": "leena"
+  },
+  {
+    "id": 2,
+    "namesub": "Forensic medicine",
+    "note": "....",
+    "staffname": "leena"
+  },
+  {
+    "id": 3,
+    "namesub": "gobigobi",
+    "note": "want to study",
+    "staffname": "gobi"
+  },
+  {
+    "id": 4,
+    "namesub": "forensic",
+    "note": "want to study",
+    "staffname": "leena"
+  },
+  {
+    "id": 5,
+    "namesub": "LLMs",
+    "note": "....",
+    "staffname": "gobi"
+  },
+  {
+    "id": 6,
+    "namesub": "r3wqeascd",
+    "note": "want to study",
+    "staffname": "gobi"
+  }
+]

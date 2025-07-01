@@ -595,35 +595,19 @@
 
         <!-- Dashboard Cards -->
         <div class="row mb-4">
-            <div class="col-md-6 col-lg-4 mb-4">
+            <div class="col-md-6 col-lg-6 mb-4">
                 <div class="dashboard-card p-4 text-center">
                     <div class="card-icon">
                         <i class="fas fa-book-medical"></i>
                     </div>
                     <div class="card-value">{{ num_subjects }}</div>
                     <div class="card-label">Subjects Added</div>
+                    <a href="/view_subject" class="btn btn-primary btn-sm mt-2">
+                        <i class="fas fa-eye"></i> View Subjects
+                    </a>
                 </div>
             </div>
-            <div class="col-md-6 col-lg-4 mb-4">
-                <div class="dashboard-card p-4">
-                    <div class="card-icon text-center">
-                        <i class="fas fa-user-md"></i>
-                    </div>
-                    <div class="card-label text-center mb-3">Staff List</div>
-                    <div style="max-height: 120px; overflow-y: auto;">
-                        <ul class="list-unstyled text-center mb-0">
-                            {% for staff in staff_list %}
-                                <li class="mb-2" style="font-family: 'Roboto Slab', 'Inter', serif; font-size: 1.1rem; font-weight: 700; color: #6d28d9; letter-spacing: 0.5px;">
-                                    {{ staff }}
-                                </li>
-                            {% else %}
-                                <li class="text-muted">No staff found</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-4 mb-4">
+            <div class="col-md-6 col-lg-6 mb-4">
                 <div class="dashboard-card p-4 text-center position-relative d-flex flex-column" style="height: 100%;">
                     <div class="card-icon">
                         <i class="fas fa-calendar-check"></i>
@@ -661,7 +645,7 @@
 
         <!-- Action Buttons -->
         <div class="row">
-            <div class="col-12 mb-4 d-flex justify-content-start">
+            <div class="col-12 mb-4 d-flex justify-content-start gap-3">
                 <button class="btn btn-primary rounded-circle" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;" data-bs-toggle="modal" data-bs-target="#addSubjectModal" title="Add Subject">
                     <i class="fas fa-plus"></i>
                 </button>
@@ -722,6 +706,10 @@
                                 <input type="text" name="exam_type" class="form-control" placeholder="e.g. Midterm, Final" required>
                             </div>
                             <div class="mb-3">
+                                <label class="form-label">Your Email (for reminders)</label>
+                                <input type="email" name="user_email" class="form-control" placeholder="Enter your email" required>
+                            </div>
+                            <div class="mb-3">
                                 <label class="form-label">Exam Date</label>
                                 <input type="date" name="date" class="form-control" required>
                             </div>
@@ -729,14 +717,17 @@
                                 <label class="form-label">Exam Time</label>
                                 <input type="time" name="time" class="form-control" required>
                             </div>
-                            <div class="mb-3 reminder-analog-container">
-                                <label class="reminder-analog-label">Remind me before:</label>
-                                <input type="number" min="0" max="23" step="1" name="reminder_hours" class="form-control reminder-analog-input" placeholder="0" value="0"> <span class="reminder-analog-unit">hours</span>
-                                <input type="number" min="1" max="59" step="1" name="reminder_minutes" class="form-control reminder-analog-input" placeholder="10" value="10"> <span class="reminder-analog-unit">minutes</span>
+                            <div class="mb-3">
+                                <label class="form-label">Reminder Date</label>
+                                <input type="date" name="remainder_date" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Reminder Time</label>
+                                <input type="time" name="remainder_time" class="form-control" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Attachment (Optional)</label>
-                                <input type="file" name="file" class="form-control">
+                                <input type="file" name="file" class="form-control" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png">
                             </div>
                             <div class="d-flex justify-content-end">
                                 <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Cancel</button>
@@ -795,7 +786,6 @@
                     <ul class="mt-2" style="padding-left: 1.25rem;">
                         <li>Patient histories</li>
                         <li>Subject information</li>
-                        <li>Staff details</li>
                         <li>Upcoming reminders</li>
                         <li>Medical records</li>
                     </ul>
@@ -811,9 +801,6 @@
             </button>
             <button class="suggestion-btn" onclick="askBot('Show recent patients')">
                 <i class="fas fa-user me-1"></i> Patients
-            </button>
-            <button class="suggestion-btn" onclick="askBot('List all staff')">
-                <i class="fas fa-user-md me-1"></i> Staff
             </button>
         </div>
         <div id="chatbot-input-row">
@@ -872,7 +859,6 @@
         // Dynamic data from backend (Jinja2 to JS)
         const subjects = {{ subjects|default([])|tojson|safe }};
         const reminders = {{ remainders|default([])|tojson|safe }};
-        const staffList = {{ staff_list|default([])|tojson|safe }};
         const patients = [];
         const today = new Date("{{ current_date|default('now') }}");
 

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, session, jsonify, flash,json
+from flask import Flask, render_template, redirect, url_for, request, session, jsonify, flash, json, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
@@ -14,10 +14,92 @@ from email import encoders
 import pytz
 import requests
 import random
+import os
+import shutil
+import traceback
+import zipfile
 from flask_migrate import Migrate
+from werkzeug.utils import secure_filename
 
 # Initialize Flask App
 app = Flask(__name__)
+
+# In-memory storage for subjects (no database needed) with file persistence
+subjects_storage = []
+SUBJECTS_FILE = "subjects_data.json"
+
+# Simple Subject Model Class
+class Subject:
+    def __init__(self, id, namesub, staffname, note):
+        self.id = id
+        self.namesub = namesub
+        self.staffname = staffname
+        self.note = note
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "namesub": self.namesub,
+            "staffname": self.staffname,
+            "note": self.note
+        }
+    
+    @staticmethod
+    def get_all():
+        return subjects_storage
+    
+    @staticmethod
+    def get_by_name(namesub):
+        for subject in subjects_storage:
+            if subject.namesub == namesub:
+                return subject
+        return None
+    
+    @staticmethod
+    def add_subject(namesub, staffname, note):
+        # Generate a new ID
+        new_id = len(subjects_storage) + 1
+        new_subject = Subject(new_id, namesub, staffname, note)
+        subjects_storage.append(new_subject)
+        Subject.save_to_file()  # Save after adding
+        return new_subject
+    
+    @staticmethod
+    def delete_by_name(namesub):
+        global subjects_storage
+        subjects_storage = [s for s in subjects_storage if s.namesub != namesub]
+        Subject.save_to_file()  # Save after deleting
+    
+    @staticmethod
+    def save_to_file():
+        """Save subjects to JSON file"""
+        try:
+            data = [subject.to_dict() for subject in subjects_storage]
+            with open(SUBJECTS_FILE, 'w') as f:
+                json.dump(data, f, indent=2)
+            print(f"DEBUG: Saved {len(data)} subjects to {SUBJECTS_FILE}")
+        except Exception as e:
+            print(f"DEBUG: Error saving subjects to file: {str(e)}")
+    
+    @staticmethod
+    def load_from_file():
+        """Load subjects from JSON file"""
+        global subjects_storage
+        try:
+            if os.path.exists(SUBJECTS_FILE):
+                with open(SUBJECTS_FILE, 'r') as f:
+                    data = json.load(f)
+                subjects_storage = []
+                for item in data:
+                    subject = Subject(item['id'], item['namesub'], item['staffname'], item['note'])
+                    subjects_storage.append(subject)
+                print(f"DEBUG: Loaded {len(subjects_storage)} subjects from {SUBJECTS_FILE}")
+            else:
+                print(f"DEBUG: No subjects file found, starting with empty list")
+                subjects_storage = []
+        except Exception as e:
+            print(f"DEBUG: Error loading subjects from file: {str(e)}")
+            subjects_storage = []
 
 # Email Configuration
 SMTP_SERVER = "smtp.gmail.com"
@@ -63,10 +145,122 @@ def send_email_reminder(to_email, subject, message, attachment_path=None):
         traceback.print_exc()
         return False
 
+# Enhanced email function with multiple attachments
+def send_email_with_attachments(to_email, subject, message, attachment_paths=None):
+    try:
+        print(f"Preparing to send email to {to_email} via {SMTP_SERVER}:{SMTP_PORT}")
+        msg = MIMEMultipart()
+        msg['From'] = SENDER_EMAIL
+        msg['To'] = to_email
+        msg['Subject'] = subject
+
+        msg.attach(MIMEText(message, 'plain'))
+
+        # Attach multiple files if provided
+        if attachment_paths:
+            for attachment_path in attachment_paths:
+                if attachment_path and os.path.exists(attachment_path):
+                    filename = os.path.basename(attachment_path)
+                    with open(attachment_path, 'rb') as f:
+                        part = MIMEBase('application', 'octet-stream')
+                        part.set_payload(f.read())
+                    encoders.encode_base64(part)
+                    part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
+                    msg.attach(part)
+                    print(f"DEBUG: Attached file: {filename}")
+
+        print("Connecting to SMTP server...")
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        print("Starting TLS...")
+        server.starttls()
+        print("Logging in...")
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+        print("Sending email...")
+        server.send_message(msg)
+        server.quit()
+        print(f"Email sent successfully to {to_email}")
+        return True
+    except Exception as e:
+        import traceback
+        print(f"Failed to send email: {e}")
+        traceback.print_exc()
+        return False
+
+# Generate PDF for history entry
+def generate_history_pdf(history_id):
+    try:
+        history_entry = SubjectHistory.query.filter_by(id=history_id).first()
+        if not history_entry:
+            print(f"DEBUG: History entry not found for ID: {history_id}")
+            return None
+
+        # Create a temporary PDF file
+        pdf_filename = f"history_{history_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        pdf_path = os.path.join(app.config["UPLOAD_FOLDER"], pdf_filename)
+
+        # Create PDF content
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import letter
+        
+        c = canvas.Canvas(pdf_path, pagesize=letter)
+        width, height = letter
+
+        # Title
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(100, height - 100, f"Medical History Report - {history_entry.namesub}")
+
+        # Content
+        c.setFont("Helvetica", 12)
+        y_position = height - 140
+        line_height = 20
+
+        content = [
+            f"Subject Name: {history_entry.namesub}",
+            f"Date: {history_entry.date.strftime('%Y-%m-%d')}",
+            f"Posting Name: {history_entry.posting_name}",
+            f"Patient Name: {history_entry.patient_name}",
+            f"Disease Details: {history_entry.disease_detail}",
+            f"Remarks: {history_entry.remarks or 'N/A'}",
+            f"Duration Date: {history_entry.duration_date.strftime('%Y-%m-%d') if history_entry.duration_date else 'N/A'}",
+            f"Reminder Date: {history_entry.remainder_date.strftime('%Y-%m-%d')}",
+            f"Reminder Time: {history_entry.remainder_time.strftime('%H:%M')}",
+        ]
+
+        for line in content:
+            c.drawString(100, y_position, line)
+            y_position -= line_height
+
+        # Extra fields if any
+        if history_entry.extra_fields:
+            y_position -= line_height
+            c.drawString(100, y_position, "Additional Information:")
+            y_position -= line_height
+            c.drawString(120, y_position, str(history_entry.extra_fields))
+
+        # Footer
+        c.setFont("Helvetica-Oblique", 10)
+        c.drawString(100, 50, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        c.drawString(100, 35, "Medical History Management System")
+
+        c.save()
+        print(f"DEBUG: Generated PDF: {pdf_path}")
+        return pdf_path
+
+    except Exception as e:
+        print(f"DEBUG: Error generating PDF: {str(e)}")
+        return None
+
 # Security & Configurations
 app.secret_key = "Sqlpassword@123"
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///newdata.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Upload Configuration
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Ensure upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Initialize Database & Bcrypt
 db = SQLAlchemy(app)
@@ -190,6 +384,9 @@ class Exam(db.Model):
 with app.app_context():
     db.create_all()  # Create all tables again
 
+    # Load subjects from file on startup
+    Subject.load_from_file()
+
     # Predefined Users
     PREDEFINED_USERS = {
         "anusha@gmail.com": "password123",
@@ -208,29 +405,24 @@ with app.app_context():
 
 
 
-@app.route("/index")
-def index():
-    return redirect(url_for('authenticate'))
 
 @app.route("/", methods=["GET", "POST"])
 def entry():
     user_name = session.get('user_name', 'User')
     remainders = [r.to_dict() for r in Remainder.query.order_by(Remainder.date.asc()).all()]
-    subjects = SubjectName.query.all()
+    subjects = Subject.get_all()
     num_subjects = len(subjects)
-    staff_list = sorted(set(s.staffname for s in subjects))
     upcoming_exams = Exam.query.filter(Exam.date >= datetime.now().date()).order_by(Exam.date.asc()).all()
-    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list, user_name=user_name, remainders=remainders, upcoming_exams=upcoming_exams)
+    return render_template('dashboard.html', num_subjects=num_subjects, user_name=user_name, remainders=remainders, upcoming_exams=upcoming_exams)
 
 @app.route("/dashboard")
 def dashboard():
     user_name = session.get('user_name', 'User')
     remainders = [r.to_dict() for r in Remainder.query.order_by(Remainder.date.asc()).all()]
-    subjects = SubjectName.query.all()
+    subjects = Subject.get_all()
     num_subjects = len(subjects)
-    staff_list = sorted(set(s.staffname for s in subjects))
     upcoming_exams = Exam.query.filter(Exam.date >= datetime.now().date()).order_by(Exam.date.asc()).all()
-    return render_template('dashboard.html', num_subjects=num_subjects, staff_list=staff_list, user_name=user_name, remainders=remainders, upcoming_exams=upcoming_exams)
+    return render_template('dashboard.html', num_subjects=num_subjects, user_name=user_name, remainders=remainders, upcoming_exams=upcoming_exams)
 
 @app.route('/add_history', methods=['POST'])
 def add_subjecthistory():
@@ -241,11 +433,21 @@ def add_subjecthistory():
         patientname = request.form['patient_name']
         disease = request.form['disease_detail']
         remarks = request.form['remarks']
+        user_email = request.form.get('user_email', session.get('email', ''))  # Get user email from form or session
         
         # Retrieve remainder date and time
         remainder_date = request.form['remainder_date']
         remainder_time = request.form['remainder_time']
         remainder_datetime = datetime.strptime(f"{remainder_date} {remainder_time}", '%Y-%m-%d %H:%M')
+        
+        # Handle file upload if any
+        uploaded_file = request.files.get('file_upload') or request.files.get('attachment')
+        attachment_path = None
+        if uploaded_file and uploaded_file.filename:
+            filename = uploaded_file.filename
+            attachment_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            uploaded_file.save(attachment_path)
+            print(f"DEBUG: File uploaded and saved to: {attachment_path}")
         
         # Create and save history entry
         new_history = SubjectHistory(
@@ -263,37 +465,72 @@ def add_subjecthistory():
         db.session.add(new_history)
         db.session.commit()
 
+        print(f"DEBUG: Added history - Subject: {subname}, Patient: {patientname}, Disease: {disease}")
+        print(f"DEBUG: History ID: {new_history.id}, User Email: {user_email}")
+
         flash("History added successfully!", "success")
 
-        # Schedule notifications
+        # Store user email in session for future use
+        if user_email:
+            session['email'] = user_email
+
+        # Schedule email notifications with PDF generation
         user_tz = pytz.timezone('Asia/Kolkata')
         send_time = user_tz.localize(remainder_datetime)
         now = datetime.now(user_tz)
 
-        # Get user's email from session
-        user_email = session.get('email')
         if user_email:
             email_subject = f"Medical History Reminder: {subname}"
             email_message = f"""
-            Medical History Reminder:
-            Subject: {subname}
-            Patient: {patientname}
-            Disease: {disease}
-            Date & Time: {remainder_datetime.strftime('%Y-%m-%d %H:%M')}
-            Remarks: {remarks}
+Medical History Reminder
+
+Subject: {subname}
+Posting Name: {postingname}
+Patient Name: {patientname}
+Disease Details: {disease}
+Remarks: {remarks}
+Date: {new_history.date.strftime('%Y-%m-%d')}
+Duration Date: {new_history.duration_date.strftime('%Y-%m-%d') if new_history.duration_date else 'N/A'}
+Reminder Date & Time: {remainder_datetime.strftime('%Y-%m-%d %H:%M')}
+
+This is an automated reminder from your Medical History Management System.
             """
+
+            # Generate PDF for this history entry
+            def send_reminder_with_pdf():
+                try:
+                    # Generate PDF
+                    pdf_path = generate_history_pdf(new_history.id)
+                    
+                    # Send email with both the uploaded attachment and generated PDF
+                    attachments = []
+                    if pdf_path:
+                        attachments.append(pdf_path)
+                    if attachment_path and os.path.exists(attachment_path):
+                        attachments.append(attachment_path)
+                    
+                    send_email_with_attachments(user_email, email_subject, email_message, attachments)
+                    
+                    # Clean up generated PDF
+                    if pdf_path and os.path.exists(pdf_path):
+                        os.remove(pdf_path)
+                        
+                except Exception as e:
+                    print(f"ERROR: Failed to send reminder email: {str(e)}")
 
             if send_time > now:
                 scheduler.add_job(
-                    send_email_reminder,
+                    send_reminder_with_pdf,
                     'date',
                     run_date=send_time,
-                    args=[user_email, email_subject, email_message],
                     id=f"email_history_{new_history.id}",
                     replace_existing=True
                 )
+                print(f"DEBUG: Scheduled email reminder for {send_time}")
             else:
-                send_email_reminder(user_email, email_subject, email_message)
+                # Send immediately if time has already passed
+                send_reminder_with_pdf()
+                print(f"DEBUG: Sent immediate email reminder")
 
         return redirect(url_for('view_subject_details', subject_name=subname))
 
@@ -302,20 +539,18 @@ def add_subject():
     if request.method == 'POST':
         subname = request.form['subname']
         staffname = request.form['staffname']
-        note = request.form['note']
-        # Create a new SubjectName object
-        subject = SubjectName(
-            namesub=subname,
-            staffname=staffname,
-            note=note
-        )
+        note = request.form.get('note', '')  # Get note, default to empty string if not provided
+        
         try:
-            db.session.add(subject)
-            db.session.commit()
+            # Add subject using the Subject model
+            new_subject = Subject.add_subject(subname, staffname, note)
+            print(f"DEBUG: Added subject - {new_subject.namesub}, {new_subject.staffname}, {new_subject.note}")
+            print(f"DEBUG: Total subjects now: {len(Subject.get_all())}")
             flash('Subject added successfully!', 'success')
         except Exception as e:
-            db.session.rollback()
+            print(f"DEBUG: Error adding subject: {str(e)}")
             flash(f'Error adding subject: {str(e)}', 'danger')
+        
         # Redirect to view_subject page to show the updated list
         return redirect(url_for('view_subject'))
 
@@ -326,16 +561,20 @@ def view_history():
 
 @app.route("/view_subject")
 def view_subject():
-    subjects = SubjectName.query.all()
+    subjects = Subject.get_all()
+    print(f"DEBUG: view_subject route - Found {len(subjects)} subjects")
+    for subject in subjects:
+        print(f"DEBUG: Subject - ID: {subject.id}, Name: {subject.namesub}, Staff: {subject.staffname}, Note: {subject.note}")
     return render_template('view_subject.html', subjects=subjects)
 
 @app.route('/delete_subject/<namesub>', methods=['GET', 'POST'])
 def del_subject(namesub):
-    subject = SubjectName.query.filter_by(namesub=namesub).first()
-    if subject:
-        db.session.delete(subject)
-        db.session.commit()
-    return redirect(url_for('dashboard'))
+    try:
+        Subject.delete_by_name(namesub)
+        flash('Subject deleted successfully!', 'success')
+    except Exception as e:
+        flash(f'Error deleting subject: {str(e)}', 'danger')
+    return redirect(url_for('view_subject'))
 
 @app.route('/del_history/<int:id>', methods=['POST'])
 def del_history(id):
@@ -347,7 +586,7 @@ def del_history(id):
 
 @app.route('/subject_history_page')
 def subject_history_page():
-    subjects = SubjectName.query.all()
+    subjects = Subject.get_all()
     return render_template('subject_history.html', subjects=subjects)
 
 @app.route('/remainder_dashboard_page')
@@ -358,17 +597,20 @@ def importants():
     return render_template('important.html')
 @app.route('/view_subject_details/<subject_name>')
 def view_subject_details(subject_name):
+    # Check if subject exists in our Subject model
+    subject = Subject.get_by_name(subject_name)
+    if not subject:
+        return render_template('no_records_found.html', subject_name=subject_name)
+    
     # Fetch all history entries for the given subject name
     subject_history_entries = SubjectHistory.query.filter_by(namesub=subject_name).all()
+    
+    print(f"DEBUG: view_subject_details - Subject: {subject_name}")
+    print(f"DEBUG: Found {len(subject_history_entries)} history entries for {subject_name}")
+    for entry in subject_history_entries:
+        print(f"DEBUG: History entry - ID: {entry.id}, Patient: {entry.patient_name}, Disease: {entry.disease_detail}")
 
-    if not subject_history_entries:
-        # Return a message if no history records found for this subject
-        return render_template('no_records_found.html', subject_name=subject_name)  # Pass subject_name instead of subject
-
-    # Render the template and pass the entries for the subject
-    return render_template('subject_history_details.html', subject_name=subject_name, subjects=subject_history_entries)
-
-    # Render the template and pass the entries for the subject
+    # Always render the template, even if no history exists (so users can add history)
     return render_template('subject_history_details.html', subject_name=subject_name, subjects=subject_history_entries)
 from datetime import date
 @app.route('/check_reminders')
@@ -687,7 +929,7 @@ def chatbot_gemini():
 
         # Check for subject-related queries
         if 'subject' in msg:
-            subjects = SubjectName.query.all()
+            subjects = Subject.get_all()
             if subjects:
                 response = "Here are the subjects:<br>"
                 for s in subjects:
@@ -696,10 +938,11 @@ def chatbot_gemini():
 
         # Check for staff-related queries
         if 'staff' in msg or 'teacher' in msg:
-            staff = SubjectName.query.with_entities(SubjectName.staffname).distinct().all()
-            if staff:
+            subjects = Subject.get_all()
+            staff_list = list(set(s.staffname for s in subjects))
+            if staff_list:
                 response = "Here are all staff members:<br>"
-                response += "<br>".join([f"• {s[0]}" for s in staff])
+                response += "<br>".join([f"• {staff}" for staff in staff_list])
                 return jsonify({"reply": response})
 
         # Check for reminders
@@ -759,30 +1002,34 @@ def answer_from_db(user_message):
     user_message = user_message.lower()
     # Remainders
     if 'remainder' in user_message or 'reminder' in user_message:
-        from datetime import date
-        remainders = Remainder.query.order_by(Remainder.date.asc()).all()
-        if not remainders:
-            return '<b>Remainders:</b><br><i>No remainders found yet.</i>'
+        from datetime import date, datetime
+        today = date.today()
+        current_time = datetime.now().time()
+        
+        # Get only active/future reminders
+        future_remainders = Remainder.query.filter(Remainder.date > today).order_by(Remainder.date.asc()).all()
+        today_remainders = Remainder.query.filter(
+            Remainder.date == today,
+            Remainder.time >= current_time
+        ).order_by(Remainder.time.asc()).all()
+        
+        active_remainders = today_remainders + future_remainders
+        
+        if not active_remainders:
+            return '<b>Active Remainders:</b><br><i>No active remainders found.</i>'
         lines = []
-        for r in remainders:
-            status = ' (Deadline Ended)' if r.date < date.today() else ''
+        for r in active_remainders:
+            status = ' (Today)' if r.date == today else ''
             line = f'<li><a href="/view_remainders#rem-{r.id}" target="_blank">{r.content} - {r.date.strftime("%Y-%m-%d")}{status}</a></li>'
             lines.append(line)
-        return '<b>Remainders:</b><ul>' + ''.join(lines) + '</ul>'
+        return '<b>Active Remainders:</b><ul>' + ''.join(lines) + '</ul>'
     # Subjects button or subjects list
     if 'subject' in user_message or 'subjects' in user_message or 'subjects list' in user_message or 'subjects button' in user_message:
-        subjects = SubjectName.query.with_entities(SubjectName.namesub, SubjectName.staffname, SubjectName.note).distinct().all()
+        subjects = Subject.get_all()
         if not subjects:
             return '<b>Subjects:</b><br><i>No subjects found yet.</i>'
-        lines = [f'<li><a href="/view_subject?subject={s[0]}" target="_blank">{s[0]}</a> (Staff: {s[1]}, Note: {s[2]})</li>' for s in subjects]
+        lines = [f'<li><a href="/view_subject?subject={s.namesub}" target="_blank">{s.namesub}</a> (Staff: {s.staffname}, Note: {s.note})</li>' for s in subjects]
         return '<b>Subjects:</b><ul>' + ''.join(lines) + '</ul>'
-    # Staff
-    if 'staff' in user_message:
-        staff = SubjectName.query.with_entities(SubjectName.staffname).distinct().all()
-        if not staff:
-            return '<b>Staff members:</b><br><i>No staff found yet.</i>'
-        lines = [f'<li><a href="/view_subject?staff={s[0]}" target="_blank">{s[0]}</a></li>' for s in staff]
-        return '<b>Staff members:</b><ul>' + ''.join(lines) + '</ul>'
     # Patient
     if 'patient' in user_message:
         patients = SubjectHistory.query.order_by(SubjectHistory.date.desc()).all()
@@ -816,7 +1063,7 @@ def answer_from_db(user_message):
         lines = [f'<li><a href="/uploads/{f[0]}" target="_blank">{f[0]}</a></li>' for f in files]
         return '<b>Files:</b><ul>' + ''.join(lines) + '</ul>'
     # Default
-    return "Sorry, I couldn't understand. Try asking about <b>subjects</b>, <b>staff</b>, <b>patients</b>, <b>reminders</b>, <b>diseases</b>, <b>history</b>, or <b>files</b>."
+    return "Sorry, I couldn't understand. Try asking about <b>subjects</b>, <b>patients</b>, <b>reminders</b>, <b>diseases</b>, <b>history</b>, or <b>files</b>."
 # --- Export actual database data as CSV ---
 @app.route('/export_actual_data_csv')
 def export_actual_data_csv():
@@ -826,10 +1073,10 @@ def export_actual_data_csv():
         yield 'user_id,name,email,password\n'
         for u in UserAuthentication.query.all():
             yield f'{u.id},{u.name},{u.email},{u.password}\n'
-        yield '\n# SubjectName Table\n'
-        yield 'subject_id,namesub,staffname,examdate,note\n'
-        for s in SubjectName.query.all():
-            yield f'{s.id},{s.namesub},{s.staffname},{s.examdate},{s.note}\n'
+        yield '\n# Subject Table\n'
+        yield 'subject_id,namesub,staffname,note\n'
+        for s in Subject.get_all():
+            yield f'{s.id},{s.namesub},{s.staffname},{s.note}\n'
         yield '\n# SubjectHistory Table\n'
         yield 'history_id,namesub,date,posting_name,patient_name,disease_detail,remarks,duration_date,remainder_date,remainder_time,extra_fields\n'
         for h in SubjectHistory.query.all():
@@ -964,25 +1211,110 @@ def logout():
 @app.route('/add_exam', methods=['POST'])
 def add_exam():
     if request.method == 'POST':
-        subject = request.form['subject']
-        exam_type = request.form['exam_type']
-        # Exam date removed from form and backend
-        time_str = request.form['time']
         try:
-            # Use today's date as default since date is removed
-            exam_date = datetime.now().date()
+            # Get form data
+            subject = request.form['subject']
+            exam_type = request.form['exam_type']
+            date_str = request.form['date']
+            time_str = request.form['time']
+            remainder_date_str = request.form['remainder_date']
+            remainder_time_str = request.form['remainder_time']
+            user_email = request.form.get('user_email', session.get('email', ''))  # Get user email from form or session
+            
+            # Parse exam date and time
+            exam_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             exam_time = datetime.strptime(time_str, "%H:%M").time()
-        except ValueError:
-            flash('Invalid time format.', 'danger')
-            return redirect(url_for('dashboard'))
-        new_exam = Exam(subject=subject, exam_type=exam_type, date=exam_date, time=exam_time)
-        try:
+            
+            # Parse remainder date and time
+            remainder_date = datetime.strptime(remainder_date_str, "%Y-%m-%d").date()
+            remainder_time = datetime.strptime(remainder_time_str, "%H:%M").time()
+            remainder_datetime = datetime.combine(remainder_date, remainder_time)
+            
+            # Handle file upload
+            attachment_path = None
+            if 'file' in request.files:
+                file = request.files['file']
+                if file.filename != '':
+                    filename = secure_filename(file.filename)
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{timestamp}_{filename}"
+                    attachment_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(attachment_path)
+                    print(f"DEBUG: File saved to {attachment_path}")
+            
+            # Create new exam (only with fields that exist in database)
+            new_exam = Exam(
+                subject=subject, 
+                exam_type=exam_type, 
+                date=exam_date, 
+                time=exam_time
+            )
             db.session.add(new_exam)
             db.session.commit()
-            flash('Exam added successfully!', 'success')
+            
+            flash(f'Exam added successfully! Reminder set for {remainder_date.strftime("%Y-%m-%d")} at {remainder_time.strftime("%H:%M")}', 'success')
+            print(f"DEBUG: Added exam - Subject: {subject}, Type: {exam_type}, Date: {exam_date}")
+            print(f"DEBUG: Remainder scheduled for: {remainder_date} at {remainder_time}")
+            
+            # Store user email in session for future use
+            if user_email:
+                session['email'] = user_email
+            
+            # Schedule email reminder if user email is available
+            if user_email:
+                user_tz = pytz.timezone('Asia/Kolkata')
+                send_time = user_tz.localize(remainder_datetime)
+                now = datetime.now(user_tz)
+                
+                email_subject = f"Exam Reminder: {subject} ({exam_type})"
+                email_message = f"""
+Exam Reminder
+
+Subject: {subject}
+Exam Type: {exam_type}
+Exam Date: {exam_date.strftime('%Y-%m-%d')}
+Exam Time: {exam_time.strftime('%H:%M')}
+Reminder Date & Time: {remainder_datetime.strftime('%Y-%m-%d %H:%M')}
+
+This is an automated reminder from your Medical Management System.
+Good luck with your exam!
+                """
+                
+                def send_exam_reminder():
+                    try:
+                        attachments = []
+                        if attachment_path and os.path.exists(attachment_path):
+                            attachments.append(attachment_path)
+                        
+                        send_email_with_attachments(user_email, email_subject, email_message, attachments)
+                        print(f"DEBUG: Sent exam reminder email for {subject}")
+                    except Exception as e:
+                        print(f"ERROR: Failed to send exam reminder email: {str(e)}")
+                
+                if send_time > now:
+                    scheduler.add_job(
+                        send_exam_reminder,
+                        'date',
+                        run_date=send_time,
+                        id=f"email_exam_{new_exam.id}",
+                        replace_existing=True
+                    )
+                    print(f"DEBUG: Scheduled exam email reminder for {send_time}")
+                else:
+                    # Send immediately if time has already passed
+                    send_exam_reminder()
+                    print(f"DEBUG: Sent immediate exam email reminder")
+            else:
+                print("DEBUG: No user email available for exam reminder")
+                
+        except ValueError as e:
+            flash(f'Invalid date/time format: {str(e)}', 'danger')
+            print(f"DEBUG: Date/time parsing error: {str(e)}")
         except Exception as e:
             db.session.rollback()
             flash(f'Error adding exam: {str(e)}', 'danger')
+            print(f"DEBUG: Error adding exam: {str(e)}")
+            
         return redirect(url_for('dashboard'))
 
 @app.route('/rename_profile', methods=['POST'])
@@ -1003,7 +1335,7 @@ def chatbot_ask():
 
     # Example: Show all subjects
     if 'subject' in question or 'all subjects' in question:
-        subjects = SubjectName.query.all()
+        subjects = Subject.get_all()
         if subjects:
             # Each subject links to its detail page
             reply = 'Here are your current subjects:<ul>' + ''.join(
@@ -1011,28 +1343,30 @@ def chatbot_ask():
             ) + '</ul>'
         else:
             reply = 'No subjects found.'
-    # Example: Show all staff
-    elif 'staff' in question:
-        staff = SubjectName.query.with_entities(SubjectName.staffname).distinct().all()
-        if staff:
-            reply = 'Staff members:<ul>' + ''.join(
-                f'<li><a href="/view_subject?staff={s.staffname}" target="_blank">{s.staffname}</a></li>' for s in staff
-            ) + '</ul>'
-        else:
-            reply = 'No staff found.'
-    # Example: Show all reminders (now only show upcoming, remove old)
+    # Example: Show all reminders (only show upcoming/active, not expired)
     elif 'reminder' in question:
-        from datetime import date
+        from datetime import date, datetime
         today = date.today()
-        reminders = Remainder.query.filter(Remainder.date >= today).order_by(Remainder.date.asc(), Remainder.time.asc()).all()
-        if reminders:
-            reply = '<b>Upcoming Reminders:</b><ul>'
-            for r in reminders:
+        current_time = datetime.now().time()
+        
+        # Get reminders that are today (and not yet passed) or in the future
+        future_reminders = Remainder.query.filter(Remainder.date > today).order_by(Remainder.date.asc(), Remainder.time.asc()).all()
+        today_reminders = Remainder.query.filter(
+            Remainder.date == today,
+            Remainder.time >= current_time
+        ).order_by(Remainder.time.asc()).all()
+        
+        all_active_reminders = today_reminders + future_reminders
+        
+        if all_active_reminders:
+            reply = '<b>Active & Upcoming Reminders:</b><ul>'
+            for r in all_active_reminders:
                 # Link to remainders page, anchor to reminder id if possible
-                reply += f'<li><a href="/view_remainders#rem-{r.id}" target="_blank">{r.content} on {r.date.strftime('%Y-%m-%d')} at {r.time.strftime('%H:%M')}</a></li>'
+                status = " (Today)" if r.date == today else ""
+                reply += f'<li><a href="/view_remainders#rem-{r.id}" target="_blank">{r.content} on {r.date.strftime('%Y-%m-%d')} at {r.time.strftime('%H:%M')}{status}</a></li>'
             reply += '</ul>'
         else:
-            reply = 'No upcoming reminders found.'
+            reply = 'No active or upcoming reminders found.'
     # Example: Show all patients from SubjectHistory table, each links to subject history detail page
     elif 'patient' in question:
         patients = SubjectHistory.query.order_by(SubjectHistory.date.desc()).all()
@@ -1048,7 +1382,7 @@ def chatbot_ask():
         if m:
             name = m.group(1).strip()
             # Try subject first
-            subject = SubjectName.query.filter(SubjectName.namesub.ilike(f'%{name}%')).first()
+            subject = Subject.get_by_name(name)
             if subject:
                 reply = f'View details for <a href="/view_subject_details/{subject.namesub}" target="_blank">{subject.namesub}</a>.'
             else:
@@ -1065,7 +1399,7 @@ def chatbot_ask():
         reply = f"Today's date is <strong>{datetime.now().strftime('%B %d, %Y')}</strong>."
     # Default fallback
     else:
-        reply = "Sorry, I couldn't understand. Try asking about <b>subjects</b>, <b>staff</b>, <b>patients</b>, or <b>reminders</b>."
+        reply = "Sorry, I couldn't understand. Try asking about <b>subjects</b>, <b>patients</b>, or <b>reminders</b>."
     return jsonify({'reply': reply})
 
 @app.route('/delete_exam/<int:exam_id>', methods=['POST'])
@@ -1106,24 +1440,330 @@ def api_recycle_bin():
 
 @app.route('/move_to_old/<namesub>', methods=['POST'])
 def move_to_old(namesub):
-    subject = SubjectName.query.filter_by(namesub=namesub).first()
-    if subject:
-        subject.is_old = True
-        db.session.commit()
-        # Move all related histories to old as well
-        histories = SubjectHistory.query.filter_by(namesub=namesub).all()
-        for h in histories:
-            h.namesub = f"OLD::{h.namesub}"
-        db.session.commit()
-        flash('Subject moved to Old Subjects!', 'success')
+    # Since we're using in-memory storage, we can just delete the subject
+    # or mark it differently. For now, let's just delete it.
+    Subject.delete_by_name(namesub)
+    # Move all related histories to old as well
+    histories = SubjectHistory.query.filter_by(namesub=namesub).all()
+    for h in histories:
+        h.namesub = f"OLD::{h.namesub}"
+    db.session.commit()
+    flash('Subject moved to Old Subjects!', 'success')
     return redirect(url_for('view_subject'))
 
 @app.route('/old_subjects')
 def old_subjects():
-    old_subjects = SubjectName.query.filter_by(is_old=True).all()
-    # Show histories for old subjects
+    # Since we're using in-memory storage, we won't have old subjects stored
+    # We can only show histories for old subjects
     old_histories = SubjectHistory.query.filter(SubjectHistory.namesub.like('OLD::%')).all()
-    return render_template('old_subjects.html', old_subjects=old_subjects, old_histories=old_histories)
+    return render_template('old_subjects.html', old_subjects=[], old_histories=old_histories)
+
+@app.route("/authenticate", methods=["GET", "POST"])
+def authenticate():
+    if request.method == "POST":
+        # Simple authentication for testing
+        session['user_name'] = 'Test User'
+        session['email'] = 'test@example.com'
+        session['is_authenticated'] = True
+        return redirect(url_for('dashboard'))
+    
+    # Simple login form for testing
+    return '''
+    <form method="post">
+        <input type="submit" value="Login for Testing">
+    </form>
+    '''
+
+@app.route("/add_sample_data")
+def add_sample_data():
+    """Add sample subjects for testing"""
+    try:
+        # Add sample subjects using the correct constructor
+        Subject.add_subject("Cardiology", "Dr. Smith", "Study of heart and cardiovascular system")
+        Subject.add_subject("Neurology", "Dr. Johnson", "Study of nervous system disorders")
+        Subject.add_subject("Orthopedics", "Dr. Brown", "Study of bones, joints, and muscles")
+        Subject.add_subject("Pediatrics", "Dr. Davis", "Medical care of infants and children")
+        Subject.add_subject("Dermatology", "Dr. Wilson", "Study of skin conditions")
+        
+        print("DEBUG: Sample subjects added successfully")
+        print(f"DEBUG: Total subjects now: {len(Subject.get_all())}")
+        flash('Sample subjects have been added! You now have 5 subjects.', 'success')
+        
+    except Exception as e:
+        print(f"DEBUG: Error adding sample data: {str(e)}")
+        flash(f'Error adding sample data: {str(e)}', 'danger')
+    
+    return redirect(url_for('view_subject'))
+
+@app.route('/delete_subject_history/<int:history_id>', methods=['POST'])
+def delete_subject_history(history_id):
+    """Delete a specific subject history entry"""
+    try:
+        # Find the history entry
+        history_entry = SubjectHistory.query.get(history_id)
+        
+        if not history_entry:
+            flash('History record not found.', 'danger')
+            return redirect(url_for('view_subject'))
+        
+        # Store the subject name for redirection
+        subject_name = history_entry.namesub
+        
+        # Delete the history entry
+        db.session.delete(history_entry)
+        db.session.commit()
+        
+        print(f"DEBUG: Deleted history entry - ID: {history_id}, Subject: {subject_name}")
+        flash('History record deleted successfully!', 'success')
+        
+        # Redirect back to the subject details page
+        return redirect(url_for('view_subject_details', subject_name=subject_name))
+        
+    except Exception as e:
+        print(f"DEBUG: Error deleting history: {str(e)}")
+        db.session.rollback()
+        flash(f'Error deleting history record: {str(e)}', 'danger')
+        return redirect(url_for('view_subject'))
+
+@app.route('/clear_all_data', methods=['POST'])
+def clear_all_data():
+    """Clear all data from the system - subjects, histories, remainders, files, conversations, exams"""
+    try:
+        # Clear in-memory subjects storage
+        global subjects_storage
+        subjects_storage = []
+        
+        # Remove the subjects file
+        if os.path.exists(SUBJECTS_FILE):
+            os.remove(SUBJECTS_FILE)
+            print(f"DEBUG: Removed subjects file: {SUBJECTS_FILE}")
+        
+        print("DEBUG: Cleared subjects_storage")
+        
+        # Clear all database tables
+        SubjectHistory.query.delete()
+        print("DEBUG: Cleared SubjectHistory table")
+        
+        History.query.delete()
+        print("DEBUG: Cleared History table")
+        
+        Remainder.query.delete()
+        print("DEBUG: Cleared Remainder table")
+        
+        FileMeta.query.delete()
+        print("DEBUG: Cleared FileMeta table")
+        
+        Conversation.query.delete()
+        print("DEBUG: Cleared Conversation table")
+        
+        Exam.query.delete()
+        print("DEBUG: Cleared Exam table")
+        
+        # Commit all deletions
+        db.session.commit()
+        
+        # Clear uploaded files from directories
+        upload_dirs = ['uploads', 'uplo', 'user_uploads']
+        for upload_dir in upload_dirs:
+            if os.path.exists(upload_dir):
+                for filename in os.listdir(upload_dir):
+                    file_path = os.path.join(upload_dir, filename)
+                    try:
+                        if os.path.isfile(file_path):
+                            os.unlink(file_path)
+                        elif os.path.isdir(file_path):
+                            shutil.rmtree(file_path)
+                    except Exception as e:
+                        print(f"Error deleting {file_path}: {e}")
+        
+        print("DEBUG: System reset completed successfully")
+        flash('All data has been cleared successfully! You can now start fresh.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"DEBUG: Error during system reset: {str(e)}")
+        flash(f'Error clearing data: {str(e)}', 'danger')
+    
+    return redirect(url_for('dashboard'))
+
+@app.route('/reset_system', methods=['GET', 'POST'])
+def reset_system():
+    """Show confirmation page for system reset"""
+    if request.method == 'POST':
+        # User confirmed reset
+        return redirect(url_for('clear_all_data'))
+    
+    # Show confirmation page
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Reset System - Confirmation</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 50px; background-color: #f5f5f5; }
+            .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+            .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+            .btn { padding: 10px 20px; margin: 10px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; }
+            .btn-danger { background-color: #dc3545; color: white; }
+            .btn-secondary { background-color: #6c757d; color: white; }
+            .btn:hover { opacity: 0.8; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>⚠️ System Reset Confirmation</h2>
+            <div class="warning">
+                <strong>Warning!</strong> This action will permanently delete ALL data including:
+                <ul>
+                    <li>All subjects and their histories</li>
+                    <li>All patient records</li>
+                    <li>All reminders and remainders</li>
+                    <li>All uploaded files</li>
+                    <li>All chat conversations</li>
+                    <li>All exam schedules</li>
+                </ul>
+                <strong>This action cannot be undone!</strong>
+            </div>
+            
+            <p>Are you sure you want to clear all data and start from scratch?</p>
+            
+            <form method="post" style="display: inline;">
+                <button type="submit" class="btn btn-danger">Yes, Clear All Data</button>
+            </form>
+            <a href="/dashboard" class="btn btn-secondary">Cancel</a>
+        </div>
+    </body>
+    </html>
+    '''
+
+@app.route('/clear_history_data', methods=['POST'])
+def clear_history_data():
+    """Clear only subject history data"""
+    try:
+        # Clear all SubjectHistory records
+        SubjectHistory.query.delete()
+        print("DEBUG: Cleared SubjectHistory table")
+        
+        # Commit the deletion
+        db.session.commit()
+        
+        print("DEBUG: History data cleared successfully")
+        flash('All history data has been cleared successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"DEBUG: Error clearing history data: {str(e)}")
+        flash(f'Error clearing history data: {str(e)}', 'danger')
+    
+    return redirect(url_for('dashboard'))
+
+@app.route('/test_email_functionality')
+def test_email_functionality():
+    """Simple test route to verify email sending works"""
+    try:
+        # Test email configuration
+        test_email = "test@example.com"  # Change this to your email
+        subject = "Test Email from MedicoApp"
+        message = """
+This is a test email to verify that the email functionality is working properly.
+
+If you receive this email, the email system is configured correctly.
+
+Best regards,
+MedicoApp Team
+        """
+        
+        success = send_email_reminder(test_email, subject, message)
+        
+        if success:
+            return jsonify({"status": "success", "message": f"Test email sent successfully to {test_email}"})
+        else:
+            return jsonify({"status": "error", "message": "Failed to send test email"})
+            
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Email test failed: {str(e)}"})
+
+@app.route('/test_exam_email', methods=['POST'])
+def test_exam_email():
+    """Test route to verify email functionality"""
+    try:
+        test_email = request.form.get('test_email', 'test@example.com')
+        
+        # Create a test email
+        email_subject = "Test Exam Reminder - MediTrack"
+        email_message = """
+Dear Student,
+
+This is a test reminder for your upcoming exam:
+
+Subject: Test Subject
+Exam Type: Test Exam
+Date: 2025-07-15
+Time: 14:00
+
+This is a test email to verify the reminder system is working.
+
+Best regards,
+MediTrack Team
+        """
+        
+        # Send test email
+        success = send_email_reminder(test_email, email_subject, email_message)
+        
+        if success:
+            flash(f'Test email sent successfully to {test_email}!', 'success')
+        else:
+            flash(f'Failed to send test email to {test_email}. Check email configuration.', 'danger')
+            
+    except Exception as e:
+        flash(f'Error sending test email: {str(e)}', 'danger')
+        print(f"DEBUG: Test email error: {str(e)}")
+    
+    return redirect(url_for('dashboard'))
+
+# Test route for email functionality
+@app.route('/test_email_with_pdf')
+def test_email_with_pdf():
+    """Test route to verify email with PDF attachment works"""
+    try:
+        # Test email configuration
+        test_email = "your-test-email@gmail.com"  # Replace with your actual email
+        subject = "Test Email with PDF from MedicoApp"
+        message = """
+This is a test email with PDF attachment to verify that the email functionality is working properly.
+
+If you receive this email with a PDF attachment, the email system is configured correctly.
+
+Best regards,
+MedicoApp Team
+        """
+        
+        # Create a sample history entry for PDF generation (if any exists)
+        sample_history = SubjectHistory.query.first()
+        attachments = []
+        
+        if sample_history:
+            pdf_path = generate_history_pdf(sample_history.id)
+            if pdf_path:
+                attachments.append(pdf_path)
+        
+        # Send test email with attachments
+        if attachments:
+            success = send_email_with_attachments(test_email, subject, message, attachments)
+        else:
+            success = send_email_reminder(test_email, subject, message)
+        
+        # Clean up generated PDF
+        if attachments and os.path.exists(attachments[0]):
+            os.remove(attachments[0])
+        
+        if success:
+            return jsonify({"status": "success", "message": f"Test email with PDF sent successfully to {test_email}"})
+        else:
+            return jsonify({"status": "error", "message": "Failed to send test email"})
+            
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Email test failed: {str(e)}"})
 
 if __name__ == '__main__':
     app.run(debug=True)
