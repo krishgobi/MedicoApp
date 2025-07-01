@@ -1,0 +1,36 @@
+# Flask Web Framework
+Flask==2.3.3
+Werkzeug==2.3.7
+
+# Database
+Flask-SQLAlchemy==3.0.5
+Flask-Migrate==4.0.5
+
+# Security & Authentication
+Flask-Bcrypt==1.0.1
+
+# Job Scheduling
+APScheduler==3.10.4
+
+# HTTP Requests
+requests==2.31.0
+
+# Timezone handling
+pytz==2023.3
+
+# Python Standard Library (these are built-in, but listed for reference)
+# datetime - built-in
+# smtplib - built-in
+# email - built-in
+# os - built-in
+# shutil - built-in
+# traceback - built-in
+# zipfile - built-in
+# random - built-in
+# json - built-in
+
+# Development Dependencies (optional)
+python-dotenv==1.0.0
+
+# Note: Some packages may require specific versions depending on your Python version
+# If you encounter compatibility issues, you may need to adjust versions
