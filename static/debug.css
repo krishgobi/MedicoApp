@@ -1,0 +1,35 @@
+/* Additional mobile fixes for sidebar visibility */
+
+/* Test responsive behavior */
+@media screen and (max-width: 992px) {
+    .test-mobile {
+        background-color: red;
+        color: white;
+        padding: 10px;
+        position: fixed;
+        top: 0;
+        right: 0;
+        z-index: 9999;
+    }
+}
+
+@media screen and (min-width: 993px) {
+    .test-desktop {
+        background-color: green;
+        color: white;
+        padding: 10px;
+        position: fixed;
+        top: 0;
+        right: 0;
+        z-index: 9999;
+    }
+}
+
+/* Debug styles to ensure sidebar is always visible on desktop */
+.sidebar-debug {
+    border: 2px solid red !important;
+}
+
+.main-content-debug {
+    border: 2px solid blue !important;
+}
