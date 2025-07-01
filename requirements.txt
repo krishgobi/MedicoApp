@@ -15,6 +15,9 @@ APScheduler==3.10.4
 # HTTP Requests
 requests==2.31.0
 
+# PDF Generation
+reportlab==4.0.4
+
 # Timezone handling
 pytz==2023.3
 
